@@ -1,14 +1,11 @@
 from __future__ import annotations
-
-# ⬇⬇⬇  examgen/gui/dialogs.py  ⬇⬇⬇
-# (Reescrito completo: correcciones de borrado filas + centrado checkbox)
-
 from pathlib import Path
 from typing import List
 
 from PySide6.QtCore import Qt, QSize
-from PySide6.QtGui import QTextOption, QIcon
+from PySide6.QtGui import QIcon, QTextOption
 from PySide6.QtWidgets import (
+    QCheckBox,
     QComboBox,
     QDialog,
     QDialogButtonBox,
@@ -21,135 +18,178 @@ from PySide6.QtWidgets import (
     QTableWidgetItem,
     QToolButton,
     QHeaderView,
+    QHBoxLayout,
     QVBoxLayout,
     QWidget,
+    QStyledItemDelegate,
+    QStyleOptionViewItem,
 )
 
 from examgen import models as m
 
-DB_PATH: Path = Path("examgen.db")
-MAX_LEN = 3000
+DB_PATH = Path("examgen.db")
+MAX_CHARS = 3000
 MIN_ROWS = 4
+ROW_HEIGHT = 60
 
 
-# ---------------------------------------------------------------------------
-# Tabla de opciones
-# ---------------------------------------------------------------------------
+# ---------- Delegate para evitar elipsis y forzar wrap ------------------ #
+class NoElideDelegate(QStyledItemDelegate):
+    def initStyleOption(self, option: QStyleOptionViewItem, index):  # type: ignore[override]
+        super().initStyleOption(option, index)
+        option.textElideMode = Qt.ElideNone
+        option.features |= QStyleOptionViewItem.WrapText
 
+
+# ------------------- tabla de opciones ---------------------------------- #
 class OptionTable(QTableWidget):
-    HEADER = ["Opción", "Explicación", "Correcta", ""]
+    HEADER = ["", "Opción", "Correcta", "Respuesta", "Explicación", ""]
 
-    def __init__(self, rows: int = MIN_ROWS, parent: QWidget | None = None):
-        super().__init__(rows, 4, parent)
+    def __init__(self, parent: QWidget | None = None) -> None:
+        super().__init__(MIN_ROWS, 6, parent)
 
-        self.setHorizontalHeaderLabels(self.HEADER)
-        header = self.horizontalHeader()
-        header.setSectionResizeMode(0, QHeaderView.ResizeMode.Stretch)
-        header.setSectionResizeMode(1, QHeaderView.ResizeMode.Stretch)
-        header.resizeSection(2, 80)  # Correcta (fijo)
-        header.resizeSection(3, 40)  # Eliminar (fijo)
-        self.verticalHeader().setVisible(False)
         self.setWordWrap(True)
+        self.setHorizontalHeaderLabels(self.HEADER)
+        hdr = self.horizontalHeader()
+        hdr.setSectionResizeMode(0, QHeaderView.ResizeMode.ResizeToContents)  # letra
+        hdr.setSectionResizeMode(1, QHeaderView.ResizeMode.Stretch)          # opción
+        hdr.resizeSection(2, 80)                                             # checkbox
+        hdr.setSectionResizeMode(3, QHeaderView.ResizeMode.Stretch)          # respuesta
+        hdr.setSectionResizeMode(4, QHeaderView.ResizeMode.Stretch)          # explicación
+        hdr.resizeSection(5, 40)                                             # delete
 
-        self._populate_rows(initial=True)
+        self.verticalHeader().setVisible(False)
+        self.verticalHeader().setDefaultSectionSize(ROW_HEIGHT)
 
-    # ------------------------------------------------------------------
-    def _populate_rows(self, initial: bool = False) -> None:
-        for row in range(self.rowCount()):
-            self._setup_row(row, initial)
+        # Apply no-elide delegate to text columns
+        delegate = NoElideDelegate(self)
+        self.setItemDelegateForColumn(1, delegate)
+        self.setItemDelegateForColumn(3, delegate)
+        self.setItemDelegateForColumn(4, delegate)
 
-    def _setup_row(self, row: int, initial: bool = False) -> None:
-        # Checkbox centrado
-        chk = QTableWidgetItem()
-        chk.setFlags(Qt.ItemFlag.ItemIsUserCheckable | Qt.ItemFlag.ItemIsEnabled)
-        chk.setCheckState(Qt.CheckState.Unchecked)
-        chk.setTextAlignment(Qt.AlignmentFlag.AlignCenter)
-        self.setItem(row, 2, chk)
+        for r in range(MIN_ROWS):
+            self._init_row(r)
+        self._refresh_delete_buttons()
 
-        # Botón eliminar
-        btn = QToolButton()
-        btn.setIcon(QIcon.fromTheme("edit-delete"))
-        btn.setAutoRaise(True)
-        btn.clicked.connect(lambda _=False, r=row: self._delete_row(r))
-        self.setCellWidget(row, 3, btn)
+        self.cellChanged.connect(lambda r, _c: self.resizeRowToContents(r))
 
-    # ------------------------------------------------------------------
-    def _delete_row(self, row: int) -> None:
+    # ---------------- inicializar filas --------------------------------- #
+    def _init_row(self, row: int) -> None:
+        letter = QTableWidgetItem(chr(ord("a") + row))
+        letter.setFlags(Qt.ItemFlag.ItemIsEnabled)
+        letter.setTextAlignment(Qt.AlignCenter)
+        self.setItem(row, 0, letter)
+
+        cb = QCheckBox()
+        container = QWidget()
+        lay = QHBoxLayout(container)
+        lay.setContentsMargins(0, 0, 0, 0)
+        lay.addStretch(1)
+        lay.addWidget(cb)
+        lay.addStretch(1)
+        self.setCellWidget(row, 2, container)
+
+        trash = QToolButton()
+        trash.setIcon(QIcon.fromTheme("edit-delete"))
+        trash.setAutoRaise(True)
+        trash.clicked.connect(lambda *_: self._remove_row(row))
+        self.setCellWidget(row, 5, trash)
+
+    # ---------------- añadir / borrar ----------------------------------- #
+    def add_row(self) -> None:
+        r = self.rowCount()
+        self.insertRow(r)
+        self._init_row(r)
+        self._refresh_letters()
+        self._refresh_delete_buttons()
+
+    def _remove_row(self, row: int) -> None:
         if self.rowCount() > MIN_ROWS:
             self.removeRow(row)
-        self._refresh_delete_buttons()
+            self._refresh_letters()
+            self._refresh_delete_buttons()
 
-    def add_empty_row(self) -> None:
-        self.insertRow(self.rowCount())
-        self._setup_row(self.rowCount() - 1)
-        self._refresh_delete_buttons()
+    def _refresh_letters(self) -> None:
+        for r in range(self.rowCount()):
+            self.item(r, 0).setText(chr(ord("a") + r))
 
     def _refresh_delete_buttons(self) -> None:
-        """Enable delete on *all* rows whenever total > MIN_ROWS."""
-        allow_delete = self.rowCount() > MIN_ROWS
+        allow = self.rowCount() > MIN_ROWS
         for r in range(self.rowCount()):
-            btn = self.cellWidget(r, 3)
-            if btn:
-                btn.setEnabled(allow_delete)
+            w = self.cellWidget(r, 5)
+            btn = w if isinstance(w, QToolButton) else w.findChild(QToolButton)  # type: ignore
+            btn.setEnabled(allow)
 
-    # ------------------------------------------------------------------
-    def collect_options(self) -> tuple[List[m.AnswerOption], int]:
+    # ---------------- recoger datos ------------------------------------- #
+    def collect(self) -> tuple[List[m.AnswerOption], int]:
         opts: List[m.AnswerOption] = []
         correct = 0
         for r in range(self.rowCount()):
-            opt_item = self.item(r, 0)
-            if not opt_item or not opt_item.text().strip():
+            txt_item = self.item(r, 1)
+            if txt_item is None or not txt_item.text().strip():
                 continue
-            text = opt_item.text().strip()[:MAX_LEN]
-            expl_item = self.item(r, 1)
-            expl = expl_item.text().strip()[:MAX_LEN] if expl_item else ""
-            chk_item = self.item(r, 2)
-            is_corr = chk_item and chk_item.checkState() == Qt.CheckState.Checked
+            text = txt_item.text().strip()[:MAX_CHARS]
+            answer = (self.item(r, 3).text() if self.item(r, 3) else "").strip()[:MAX_CHARS]
+            expl = (self.item(r, 4).text() if self.item(r, 4) else "").strip()[:MAX_CHARS]
+            cb: QCheckBox = self.cellWidget(r, 2).findChild(QCheckBox)  # type: ignore
+            is_corr = cb.isChecked()
             if is_corr:
                 correct += 1
             opts.append(
-                m.AnswerOption(text=text, is_correct=is_corr, meta={"explanation": expl})  # type: ignore[arg-type]
+                m.AnswerOption(
+                    text=text,
+                    is_correct=is_corr,
+                    meta={"answer": answer, "explanation": expl},
+                )
             )
         return opts, correct
 
 
-# ---------------------------------------------------------------------------
-# Diálogo principal (sin cambios relevantes salvo ancho ventana)
-# ---------------------------------------------------------------------------
-
+# ------------------- diálogo principal ---------------------------------- #
 class QuestionDialog(QDialog):
-    def __init__(self, parent=None):
+    def __init__(self, parent: QWidget | None = None, *, db_path: Path = DB_PATH) -> None:
         super().__init__(parent)
+        self.db_path = db_path
         self.setWindowTitle("Nueva pregunta – MCQ")
         self.resize(1920, 1080)
 
-        # Materia
-        self.subject_combo = QComboBox(editable=True)
+        # Materia & Referencia
+        self.cb_subject = QComboBox(editable=True, fixedWidth=500)
+        self.cb_reference = QComboBox(editable=True, fixedWidth=250)
         self._load_subjects()
 
-        # Enunciado + contador
-        self.prompt_edit = QPlainTextEdit()
-        self.prompt_edit.setWordWrapMode(QTextOption.WrapMode.WordWrap)
-        self.prompt_edit.textChanged.connect(self._update_counter)
-        self.counter = QLabel("0/3000", alignment=Qt.AlignmentFlag.AlignRight)
-        self.counter.setStyleSheet("color:#888;font-size:11px")
+        top_row = QHBoxLayout()
+        top_row.addWidget(self.cb_subject)
+        top_row.addSpacing(20)
+        top_row.addWidget(QLabel("Referencia:"))
+        top_row.addWidget(self.cb_reference)
+        top_row.addStretch(1)
+        w_top = QWidget()
+        w_top.setLayout(top_row)
 
-        # Tabla opciones + botón añadir
-        self.options_table = OptionTable(MIN_ROWS, self)
-        add_btn = QPushButton("+")
-        add_btn.setFixedSize(QSize(30, 30))
-        add_btn.clicked.connect(self.options_table.add_empty_row)
+        # Enunciado
+        self.prompt = QPlainTextEdit()
+        self.prompt.setWordWrapMode(QTextOption.WrapMode.WordWrap)
+        self.counter = QLabel("0/3000", alignment=Qt.AlignRight)
+        self.prompt.textChanged.connect(self._update_counter)
+
+        # Tabla y botón +
+        self.table = OptionTable(self)
+        add_btn = QPushButton("+", clicked=self.table.add_row, fixedSize=QSize(30, 30))
 
         # Layout
         form = QFormLayout()
-        form.addRow("Materia:", self.subject_combo)
-        form.addRow("Enunciado:", self.prompt_edit)
+        form.addRow("Materia:", w_top)
+        form.addRow("Enunciado:", self.prompt)
         form.addRow("", self.counter)
         form.addRow(QLabel("Opciones (texto, explicación, correcta):"))
-        form.addRow(self.options_table)
-        form.addRow(add_btn)
+        form.addRow(self.table)
+        h = QHBoxLayout()
+        h.addWidget(add_btn)
+        h.addStretch(1)
+        form.addRow(h)
 
-        buttons = QDialogButtonBox(QDialogButtonBox.StandardButton.Save | QDialogButtonBox.StandardButton.Cancel)
+        buttons = QDialogButtonBox(QDialogButtonBox.Save | QDialogButtonBox.Cancel)
         buttons.accepted.connect(self.accept)
         buttons.rejected.connect(self.reject)
 
@@ -157,48 +197,44 @@ class QuestionDialog(QDialog):
         root.addLayout(form)
         root.addWidget(buttons)
 
-    # ------------------------------------------------------------------
+    # ---- helpers -------------------------------------------------------- #
     def _update_counter(self) -> None:
-        txt = self.prompt_edit.toPlainText()
-        if len(txt) > MAX_LEN:
-            self.prompt_edit.setPlainText(txt[:MAX_LEN])
-            cur = self.prompt_edit.textCursor()
-            cur.movePosition(cur.End)
-            self.prompt_edit.setTextCursor(cur)
-        self.counter.setText(f"{len(self.prompt_edit.toPlainText())}/{MAX_LEN}")
+        txt = self.prompt.toPlainText()
+        if len(txt) > MAX_CHARS:
+            self.prompt.setPlainText(txt[:MAX_CHARS])
+            self.prompt.moveCursor(self.prompt.textCursor().End)
+        self.counter.setText(f"{len(self.prompt.toPlainText())}/3000")
 
     def _load_subjects(self) -> None:
-        try:
-            with m.Session(m.get_engine(DB_PATH)) as s:
-                names = [sub.name for sub in s.query(m.Subject).order_by(m.Subject.name)]
-        except Exception:
-            names = []
-        self.subject_combo.addItems(names)
-        self.subject_combo.setPlaceholderText("Selecciona o escribe…")
+        with m.Session(m.get_engine(self.db_path)) as s:
+            names = [sub.name for sub in s.query(m.Subject).all()]
+        names.sort()
+        self.cb_subject.addItems(names)
+        self.cb_reference.addItems(names)
+        self.cb_subject.setPlaceholderText("Seleccione / escriba…")
+        self.cb_reference.setPlaceholderText("Seleccione / escriba…")
 
-    # ------------------------------------------------------------------
+    # ---- guardar -------------------------------------------------------- #
     def accept(self) -> None:  # noqa: D401
-        subj = self.subject_combo.currentText().strip()
-        prompt = self.prompt_edit.toPlainText().strip()[:MAX_LEN]
-        if not subj or not prompt:
-            QMessageBox.warning(self, "Datos incompletos", "Materia y enunciado son obligatorios.")
+        subj = self.cb_subject.currentText().strip()
+        ref = self.cb_reference.currentText().strip()
+        prompt_txt = self.prompt.toPlainText().strip()
+
+        if not subj or not prompt_txt:
+            QMessageBox.warning(self, "Datos incompletos", "Materia y enunciado obligatorios.")
             return
 
-        options, correct = self.options_table.collect_options()
+        options, correct = self.table.collect()
         if len(options) < 2 or correct == 0:
-            QMessageBox.warning(self, "Datos incompletos", "Añade al menos dos opciones y marca la(s) correcta(s).")
+            QMessageBox.warning(self, "Datos incompletos", "Añade ≥2 opciones y marca la(s) correcta(s).")
             return
 
-        try:
-            with m.Session(m.get_engine(DB_PATH)) as s:
-                subj_obj = s.query(m.Subject).filter_by(name=subj).first() or m.Subject(name=subj)
-                q = m.MCQQuestion(prompt=prompt, subject=subj_obj)
-                q.options = options
-                s.add(q)
-                s.commit()
-        except Exception as exc:
-            QMessageBox.critical(self, "Error", str(exc))
-            return
+        with m.Session(m.get_engine(self.db_path)) as s:
+            subj_obj = s.query(m.Subject).filter_by(name=subj).first() or m.Subject(name=subj)
+            ref_obj = s.query(m.Subject).filter_by(name=ref).first() if ref else None
+            q = m.MCQQuestion(prompt=prompt_txt, subject=subj_obj, reference=ref_obj)  # type: ignore[arg-type]
+            q.options = options
+            s.add(q)
+            s.commit()
 
-        QMessageBox.information(self, "Guardado", "Pregunta creada correctamente.")
         super().accept()

@@ -1,91 +1,130 @@
-from __future__ import annotations
+"""
+examgen/gui/main.py – Ventana principal de ExamGen con selector de tema.
 
-"""examgen.gui.main – Main window with runtime theme switching."""
+• El tema *Oscuro* se aplica al arrancar.
+• Menú “Tema” permite cambiar entre Claro y Oscuro en caliente.
+• Menú “Archivo” incluye “Nueva pregunta…”.
+"""
+
+from __future__ import annotations
 
 import sys
 from pathlib import Path
 
 from PySide6.QtCore import Qt
-from PySide6.QtGui import QFont, QAction, QActionGroup
-from PySide6.QtWidgets import QApplication, QLabel, QMainWindow, QMenu, QMenuBar
+from PySide6.QtGui import QAction, QActionGroup, QFont
+from PySide6.QtWidgets import (
+    QApplication,
+    QLabel,
+    QMainWindow,
+    QMenu,
+    QMenuBar,
+    QStatusBar,
+)
 
-from examgen.gui.style import Style
-from examgen.gui.dialogs import QuestionDialog, DB_PATH
 from examgen import models as m
+from examgen.gui.dialogs import QuestionDialog
+from examgen.gui.style import Style
+
+DB_PATH = Path("examgen.db")  # misma ruta que usan los diálogos
 
 
 class MainWindow(QMainWindow):
-    """Main ExamGen window."""
+    """Ventana principal con cambio de tema en tiempo real."""
 
-    def __init__(self, app: QApplication) -> None:
+    def __init__(self) -> None:
         super().__init__()
-        self._app = app
-        self.current_theme = "Claro"
-
         self.setWindowTitle("ExamGen")
         self.resize(1280, 720)
 
-        label = QLabel("Hello ExamGen", alignment=Qt.AlignmentFlag.AlignCenter)
-        self.setCentralWidget(label)
+        # Tema actual (oscuro por defecto)
+        self.current_theme = "Oscuro"
+        self._apply_theme()
 
-        self._build_menus()
-        self.refresh_subject_count()
+        # Widget central placeholder
+        self.setCentralWidget(
+            QLabel("ExamGen – bienvenido", alignment=Qt.AlignmentFlag.AlignCenter)
+        )
 
-    # ------------------------------------------------------------------
-    def _build_menus(self) -> None:
-        menubar: QMenuBar = self.menuBar()
+        # Menú y barra de estado
+        self._create_menu_bar()
+        self._create_status_bar()
+        self._update_subject_count()
 
-        # Archivo
-        archivo: QMenu = menubar.addMenu("&Archivo")
-        archivo.addAction("Nueva &pregunta…", self.open_question_dialog)
+    # --------------------------------------------------------------------- #
+    #  Menú                                                                  #
+    # --------------------------------------------------------------------- #
+    def _create_menu_bar(self) -> None:
+        mb = QMenuBar(self)
+        self.setMenuBar(mb)
+
+        # --- Archivo ------------------------------------------------------ #
+        archivo: QMenu = mb.addMenu("&Archivo")
+        archivo.addAction(
+            "Nueva &pregunta…",
+            self._open_question_dialog,
+        )
         archivo.addSeparator()
         archivo.addAction("Salir", QApplication.instance().quit)
 
-        # Tema
-        tema: QMenu = menubar.addMenu("&Tema")
-        act_group = QActionGroup(self, exclusive=True)
-        for name in Style.THEMES.keys():
+        # --- Tema --------------------------------------------------------- #
+        tema: QMenu = mb.addMenu("&Tema")
+        group = QActionGroup(self, exclusive=True)
+
+        for name in ("Claro", "Oscuro"):
             act = QAction(name, self, checkable=True)
-            if name == self.current_theme:
-                act.setChecked(True)
-            act.triggered.connect(lambda _=False, n=name: self.set_theme(n))
-            act_group.addAction(act)
+            act.setChecked(name == self.current_theme)
+            act.triggered.connect(lambda _=False, n=name: self._switch_theme(n))
+            group.addAction(act)
             tema.addAction(act)
 
-    # ------------------------------------------------------------------
-    def set_theme(self, theme: str) -> None:
-        self.current_theme = theme
-        self._app.setStyleSheet(Style.sheet(theme))
+    # --------------------------------------------------------------------- #
+    #  Barra de estado                                                      #
+    # --------------------------------------------------------------------- #
+    def _create_status_bar(self) -> None:
+        sb = QStatusBar(self)
+        self.setStatusBar(sb)
 
-    def open_question_dialog(self) -> None:
-        if QuestionDialog(self).exec():
-            self.refresh_subject_count()
+    def _update_subject_count(self) -> None:
+        with m.Session(m.get_engine(DB_PATH)) as s:
+            count = s.query(m.Subject).count()
+        self.statusBar().showMessage(f"Materias: {count}")
 
-    def refresh_subject_count(self) -> None:
-        try:
-            with m.Session(m.get_engine(DB_PATH)) as s:
-                total = s.query(m.Subject).count()
-        except Exception:
-            total = "?"
-        self.statusBar().showMessage(f"Materias: {total}")
+    # --------------------------------------------------------------------- #
+    #  Temas                                                                #
+    # --------------------------------------------------------------------- #
+    def _apply_theme(self) -> None:
+        QApplication.instance().setStyleSheet(Style.sheet(self.current_theme))
+
+    def _switch_theme(self, target: str) -> None:
+        if target != self.current_theme:
+            self.current_theme = target
+            self._apply_theme()
+            # Actualizar checks del menú
+            for act in self.menuBar().findChildren(QAction):
+                if act.text() in ("Claro", "Oscuro"):
+                    act.setChecked(act.text() == self.current_theme)
+
+    # --------------------------------------------------------------------- #
+    #  Diálogo de pregunta                                                  #
+    # --------------------------------------------------------------------- #
+    def _open_question_dialog(self) -> None:
+        if QuestionDialog(self, db_path=DB_PATH).exec():
+            self._update_subject_count()
 
 
-# ---------------------------------------------------------------------------
-# Entry point
-# ---------------------------------------------------------------------------
-
+# ------------------------------------------------------------------------- #
+#  Entry-point                                                              #
+# ------------------------------------------------------------------------- #
 def main() -> None:
-    """Application entry point."""
-    m.init_db(DB_PATH)
+    m.init_db(DB_PATH)  # crea BD si no existe
 
     app = QApplication(sys.argv)
-    app.setStyleSheet(Style.sheet("Claro"))
-
     font = QFont()
     font.setPointSize(11)
     app.setFont(font)
 
-    win = MainWindow(app)
+    win = MainWindow()
     win.show()
     sys.exit(app.exec())
 
