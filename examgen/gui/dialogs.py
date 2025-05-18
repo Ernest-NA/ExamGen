@@ -3,7 +3,7 @@ from pathlib import Path
 from typing import List
 
 from PySide6.QtCore import Qt, QSize
-from PySide6.QtGui import QIcon, QTextOption, QFontMetrics
+from PySide6.QtGui import QIcon, QTextOption
 from PySide6.QtWidgets import (
     QCheckBox,
     QComboBox,
@@ -30,15 +30,30 @@ from examgen import models as m
 DB_PATH = Path("examgen.db")
 MAX_CHARS = 3000
 MIN_ROWS = 4
-ROW_HEIGHT = 60  # altura mínima
 
 
-# -------- Delegate que elimina elipsis y permite wrap ------------------ #
-class WrapDelegate(QStyledItemDelegate):
+# -------------- Delegate que envuelve texto en cualquier punto ---------- #
+class WrapAnywhereDelegate(QStyledItemDelegate):
+    _flags = Qt.TextWordWrap | Qt.TextWrapAnywhere
+
     def initStyleOption(self, option: QStyleOptionViewItem, index):  # type: ignore[override]
         super().initStyleOption(option, index)
         option.textElideMode = Qt.ElideNone
-        option.features |= QStyleOptionViewItem.WrapText
+        option.displayAlignment = Qt.AlignLeft | Qt.AlignVCenter
+
+    def sizeHint(self, option: QStyleOptionViewItem, index):  # type: ignore[override]
+        # Qt calculará bien el alto con wrap; aquí solo respetamos mínimo
+        size = super().sizeHint(option, index)
+        min_h = option.fontMetrics.lineSpacing() + 6
+        if size.height() < min_h:
+            size.setHeight(min_h)
+        return size
+
+    def paint(self, painter, option, index):  # type: ignore[override]
+        self.initStyleOption(option, index)
+        painter.save()
+        painter.drawText(option.rect, self._flags, str(index.data(Qt.DisplayRole)))
+        painter.restore()
 
 
 # ------------------- tabla de opciones ---------------------------------- #
@@ -60,36 +75,43 @@ class OptionTable(QTableWidget):
         hdr.setStretchLastSection(False)
 
         self.verticalHeader().setVisible(False)
-        self.verticalHeader().setDefaultSectionSize(ROW_HEIGHT)
+        min_h = self.fontMetrics().lineSpacing() + 6
+        self.verticalHeader().setDefaultSectionSize(min_h)
 
-        # Delegate wrap para columnas de texto
-        wrap = WrapDelegate(self)
+        wrap = WrapAnywhereDelegate(self)
         for col in (1, 3, 4):
             self.setItemDelegateForColumn(col, wrap)
 
         for r in range(MIN_ROWS):
             self._init_row(r)
         self._refresh_delete_buttons()
+        self.resizeRowsToContents()
 
-        # Ajustar altura al editar
         self.cellChanged.connect(self._auto_height)
 
     # ---------------- inicializar filas --------------------------------- #
     def _init_row(self, row: int) -> None:
+        # Letra
         letter = QTableWidgetItem(chr(ord("a") + row))
         letter.setFlags(Qt.ItemFlag.ItemIsEnabled)
         letter.setTextAlignment(Qt.AlignCenter)
         self.setItem(row, 0, letter)
 
-        cb = QCheckBox()
-        c = QWidget()
-        lay = QHBoxLayout(c)
+        # Columnas de texto vacías (sin “None”)
+        for col in (1, 3, 4):
+            self.setItem(row, col, QTableWidgetItem(""))
+
+        # Checkbox
+        chk = QCheckBox()
+        box = QWidget()
+        lay = QHBoxLayout(box)
         lay.setContentsMargins(0, 0, 0, 0)
         lay.addStretch(1)
-        lay.addWidget(cb)
+        lay.addWidget(chk)
         lay.addStretch(1)
-        self.setCellWidget(row, 2, c)
+        self.setCellWidget(row, 2, box)
 
+        # Papelera
         trash = QToolButton()
         trash.setIcon(QIcon.fromTheme("edit-delete"))
         trash.setAutoRaise(True)
@@ -103,12 +125,14 @@ class OptionTable(QTableWidget):
         self._init_row(r)
         self._refresh_letters()
         self._refresh_delete_buttons()
+        self.resizeRowsToContents()
 
     def _remove_row(self, row: int) -> None:
         if self.rowCount() > MIN_ROWS:
             self.removeRow(row)
             self._refresh_letters()
             self._refresh_delete_buttons()
+            self.resizeRowsToContents()
 
     def _refresh_letters(self) -> None:
         for r in range(self.rowCount()):
@@ -117,40 +141,41 @@ class OptionTable(QTableWidget):
     def _refresh_delete_buttons(self) -> None:
         allow = self.rowCount() > MIN_ROWS
         for r in range(self.rowCount()):
-            w = self.cellWidget(r, 5)
-            btn = w if isinstance(w, QToolButton) else w.findChild(QToolButton)  # type: ignore
-            btn.setEnabled(allow)
-
-    # ---------------- auto-altura --------------------------------------- #
+            btn: QToolButton | None = self.cellWidget(r, 5).findChild(QToolButton)  # type: ignore
+            if btn:
+                btn.setEnabled(allow)
+    
+    # ---------------- auto-altura -------------------------------------- #
     def _auto_height(self, row: int, _col: int) -> None:
-        fm: QFontMetrics = self.fontMetrics()
-        lines = 1
-        for col in (1, 3, 4):
+        """Ajusta la altura de *row* al alto real del texto (sin límite)."""
+        fm    = self.fontMetrics()
+        flags = Qt.TextWrapAnywhere          # envuelve incluso sin espacios
+        min_h = fm.lineSpacing() + 6         # altura mínima
+        height = min_h
+
+        for col in (1, 3, 4):                # columnas con texto
             item = self.item(row, col)
-            if not item or not item.text():
+            if not item:
                 continue
-            # estimar líneas según ancho de columna
-            est_lines = (
-                fm.horizontalAdvance(item.text()) // max(self.columnWidth(col), 1) + 1
-            )
-            lines = max(lines, est_lines)
-        new_h = max(ROW_HEIGHT, lines * (fm.lineSpacing() + 4))
-        if self.rowHeight(row) != new_h:
-            self.setRowHeight(row, new_h)
+            width = max(self.columnWidth(col) - 4, 1)
+            rect  = fm.boundingRect(0, 0, width, 10_000, flags, item.text())
+            height = max(height, rect.height() + 6)
+
+        if self.rowHeight(row) != height:
+            self.setRowHeight(row, height)
 
     # ---------------- recoger datos ------------------------------------- #
     def collect(self) -> tuple[List[m.AnswerOption], int]:
         opts: List[m.AnswerOption] = []
         correct = 0
         for r in range(self.rowCount()):
-            txt_item = self.item(r, 1)
-            if txt_item is None or not txt_item.text().strip():
+            text = self.item(r, 1).text().strip()  # type: ignore[attribute-defined-outside-init]
+            if not text:
                 continue
-            text = txt_item.text().strip()[:MAX_CHARS]
-            answer = (self.item(r, 3).text() if self.item(r, 3) else "").strip()[:MAX_CHARS]
-            expl = (self.item(r, 4).text() if self.item(r, 4) else "").strip()[:MAX_CHARS]
-            cb: QCheckBox = self.cellWidget(r, 2).findChild(QCheckBox)  # type: ignore
-            is_corr = cb.isChecked()
+            text = text[:MAX_CHARS]
+            answer = self.item(r, 3).text().strip()[:MAX_CHARS]   # type: ignore
+            expl = self.item(r, 4).text().strip()[:MAX_CHARS]     # type: ignore
+            is_corr = self.cellWidget(r, 2).findChild(QCheckBox).isChecked()  # type: ignore
             if is_corr:
                 correct += 1
             opts.append(
@@ -177,41 +202,41 @@ class QuestionDialog(QDialog):
         self._load_subjects()
 
         top = QHBoxLayout()
+        top.setContentsMargins(0, 0, 0, 0) 
         top.addWidget(self.cb_subject)
         top.addSpacing(20)
         top.addWidget(QLabel("Referencia:"))
         top.addWidget(self.cb_reference)
         top.addStretch(1)
-        w_top = QWidget()
-        w_top.setLayout(top)
+        w_top = QWidget(); w_top.setLayout(top)
 
-        # Enunciado
+        # --- Enunciado -------------------------------------------------------
         self.prompt = QPlainTextEdit()
         self.prompt.setWordWrapMode(QTextOption.WrapMode.WordWrap)
         self.counter = QLabel("0/3000", alignment=Qt.AlignRight)
         self.prompt.textChanged.connect(self._update_counter)
 
-        # Tabla y “+”
+        w_prompt = QWidget()                 # NUEVO contenedor sin margen
+        hp      = QHBoxLayout(w_prompt)
+        hp.setContentsMargins(0, 0, 0, 0)    # ← sin separación
+        hp.addWidget(self.prompt)
+
+        # Tabla y botón +
         self.table = OptionTable(self)
-        add_btn = QPushButton("+")
-        add_btn.setFixedSize(QSize(30, 30))
-        add_btn.clicked.connect(self.table.add_row)
+        add_btn = QPushButton("+", clicked=self.table.add_row, fixedSize=QSize(30, 30))
 
         # Layout
         form = QFormLayout()
         form.addRow("Materia:", w_top)
-        form.addRow("Enunciado:", self.prompt)
+        form.addRow("Enunciado:", w_prompt)
         form.addRow("", self.counter)
         form.addRow(QLabel("Opciones (texto, explicación, correcta):"))
         form.addRow(self.table)
-        h = QHBoxLayout()
-        h.addWidget(add_btn)
-        h.addStretch(1)
+        h = QHBoxLayout(); h.addWidget(add_btn); h.addStretch(1)
         form.addRow(h)
 
-        buttons = QDialogButtonBox(QDialogButtonBox.Save | QDialogButtonBox.Cancel)
-        buttons.accepted.connect(self.accept)
-        buttons.rejected.connect(self.reject)
+        buttons = QDialogButtonBox(QDialogButtonBox.Save | QDialogButtonBox.Cancel,
+                                   accepted=self.accept, rejected=self.reject)
 
         root = QVBoxLayout(self)
         root.addLayout(form)
@@ -245,12 +270,11 @@ class QuestionDialog(QDialog):
 
         options, correct = self.table.collect()
         if len(options) < 2 or correct == 0:
-            QMessageBox.warning(self, "Datos incompletos", "Añade ≥2 opciones y marca la(s) correcta(s).")
+            QMessageBox.warning(
+                self, "Datos incompletos", "Añade ≥2 opciones y marca la(s) correcta(s)."
+            )
             return
 
         with m.Session(m.get_engine(self.db_path)) as s:
             subj_obj = s.query(m.Subject).filter_by(name=subj).first() or m.Subject(name=subj)
-            ref_obj = s.query(m.Subject).filter_by(name=ref).first() if ref else None
-            q = m.MCQQuestion(prompt=prompt_txt, subject=subj_obj, reference=ref_obj)  # type: ignore[arg-type]
-            q.options = options
-            s.add
+            ref_obj = s.query
