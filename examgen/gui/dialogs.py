@@ -4,6 +4,7 @@ from typing import List
 
 from PySide6.QtCore import Qt, QSize
 from PySide6.QtGui import QIcon, QTextOption
+from PySide6.QtWidgets import QLineEdit  # añade al import
 from PySide6.QtWidgets import (
     QCheckBox,
     QComboBox,
@@ -179,8 +180,8 @@ class QuestionDialog(QDialog):
 
         # subject / reference
         self.cb_subject   = QComboBox(editable=True, fixedWidth=500)
-        self.cb_reference = QComboBox(editable=True, fixedWidth=250)
-        self._load_subjects()
+        self.le_reference = QLineEdit()
+        self.le_reference.setPlaceholderText("ej.: exam_1025")
 
         top = QHBoxLayout(); top.setContentsMargins(0, 0, 0, 0)
         top.addWidget(self.cb_subject)
@@ -188,7 +189,10 @@ class QuestionDialog(QDialog):
         top.addWidget(QLabel("Referencia:"))
         top.addWidget(self.cb_reference)
         top.addStretch(1)
+        top.addWidget(QLabel("Referencia:"))
+        top.addWidget(self.le_reference)
         w_top = QWidget(); w_top.setLayout(top)
+        
 
         # prompt
         self.prompt = QPlainTextEdit()
@@ -239,7 +243,7 @@ class QuestionDialog(QDialog):
     # ---------------- guardar -----------------
     def accept(self):  # type: ignore[override]  noqa: D401
         subj = self.cb_subject.currentText().strip()
-        ref  = self.cb_reference.currentText().strip()
+        ref = self.le_reference.text().strip() 
         prompt_txt = self.prompt.toPlainText().strip()
 
         if not subj or not prompt_txt:
@@ -256,7 +260,7 @@ class QuestionDialog(QDialog):
             subj_obj = s.query(m.Subject).filter_by(name=subj).first() or m.Subject(name=subj)
             ref_obj  = s.query(m.Subject).filter_by(name=ref).first() if ref else None
 
-            q = m.MCQQuestion(prompt=prompt_txt, subject=subj_obj, reference=ref_obj)
+            q = m.MCQQuestion(prompt=prompt_txt, subject=subj_obj, reference=ref or None,)
             q.options = options
             s.add(q)
             s.commit()

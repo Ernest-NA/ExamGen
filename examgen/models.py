@@ -79,10 +79,8 @@ class Question(Base):
 
     # relaciones de materia y referencia
     subject_id:   Mapped[int] = mapped_column(ForeignKey("subject.id"), nullable=False)
-    reference_id: Mapped[int | None] = mapped_column(ForeignKey("subject.id"), nullable=True)
-
     subject:   Mapped[Subject] = relationship(back_populates="questions",  foreign_keys=[subject_id])
-    reference: Mapped[Subject] = relationship(back_populates="references_", foreign_keys=[reference_id])
+    reference: Mapped[str | None] = mapped_column(String(200))
 
     options: Mapped[List["AnswerOption"]] = relationship(
         back_populates="question", cascade="all, delete-orphan"
@@ -171,19 +169,26 @@ def get_engine(db_path: str | Path = "examgen.db"):
 
 def init_db(db_path: str | Path = "examgen.db") -> None:
     engine = get_engine(db_path)
-    Base.metadata.create_all(engine)
+    Base.metadata.create_all(engine)        # crea tablas que falten
 
-    # Añade columnas nuevas si la tabla ya existía (SQLite only)
     with engine.begin() as con:
-        for tbl, col_sql in (
-            ("question",      "reference_id INTEGER"),
-            ("answer_option", "answer TEXT"),
-            ("answer_option", "explanation TEXT"),
-        ):
-            cols = {row[1] for row in con.exec_driver_sql(f"PRAGMA table_info({tbl})")}
+        con.exec_driver_sql("PRAGMA foreign_keys = ON")
+
+        existing_cols = {
+            tbl: {row[1] for row in con.exec_driver_sql(f"PRAGMA table_info({tbl})")}
+            for tbl in ("question", "answer_option")
+        }
+
+        # columna reference (texto) — solo si no existe ninguna variante
+        if ("reference" not in existing_cols["question"]
+                and "reference_id" not in existing_cols["question"]):
+            con.exec_driver_sql("ALTER TABLE question ADD COLUMN reference TEXT")
+
+        # columnas nuevas en answer_option (por si no estaban)
+        for col_sql in ("answer TEXT", "explanation TEXT"):
             col_name = col_sql.split()[0]
-            if col_name not in cols:
-                con.exec_driver_sql(f"ALTER TABLE {tbl} ADD COLUMN {col_sql}")
+            if col_name not in existing_cols["answer_option"]:
+                con.exec_driver_sql(f"ALTER TABLE answer_option ADD COLUMN {col_sql}")
 
     print(f"✔️  Database initialised / migrated at {db_path}")
 
