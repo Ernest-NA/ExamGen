@@ -72,7 +72,7 @@ class OptionTable(QTableWidget):
         self._refresh_delete_buttons()
 
         # Ajustar altura al editar
-        self.itemChanged.connect(self._auto_height)
+        self.cellChanged.connect(self._auto_height)
 
     # ---------------- inicializar filas --------------------------------- #
     def _init_row(self, row: int) -> None:
@@ -122,7 +122,7 @@ class OptionTable(QTableWidget):
             btn.setEnabled(allow)
 
     # ---------------- auto-altura --------------------------------------- #
-    def _auto_height(self, row: int) -> None:
+    def _auto_height(self, row: int, _col: int) -> None:
         fm: QFontMetrics = self.fontMetrics()
         lines = 1
         for col in (1, 3, 4):
