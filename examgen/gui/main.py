@@ -50,6 +50,7 @@ class MainWindow(QMainWindow):
         self._create_menu_bar()
         self._create_status_bar()
         self._update_subject_count()
+        self._update_status()
 
     # --------------------------------------------------------------------- #
     #  Menú                                                                  #
@@ -90,6 +91,14 @@ class MainWindow(QMainWindow):
             count = s.query(m.Subject).count()
         self.statusBar().showMessage(f"Materias: {count}")
 
+    def _update_status(self) -> None:
+        with m.Session(m.get_engine(DB_PATH)) as s:
+            subject_count   = s.query(m.Subject).count()
+            question_count  = s.query(m.Question).count()
+        self.statusBar().showMessage(
+            f"Materias: {subject_count}   Preguntas: {question_count}"
+    )
+
     # --------------------------------------------------------------------- #
     #  Temas                                                                #
     # --------------------------------------------------------------------- #
@@ -111,6 +120,7 @@ class MainWindow(QMainWindow):
     def _open_question_dialog(self) -> None:
         if QuestionDialog(self, db_path=DB_PATH).exec():
             self._update_subject_count()
+            self._update_status()
 
 
 # ------------------------------------------------------------------------- #
