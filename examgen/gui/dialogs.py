@@ -31,19 +31,19 @@ from PySide6.QtWidgets import (
 )
 
 from examgen import models as m
-from examgen.models import SessionLocal, Question
+from examgen.models import SessionLocal
 from sqlalchemy import inspect, text
 from examgen.services.exam_service import (
     ExamConfig,
     SelectorTypeEnum,
     Attempt,
-    AttemptQuestion,
     evaluate_attempt,
 )
 
 DB_PATH = Path("examgen.db")
 MAX_CHARS = 3000
 MIN_ROWS = 4
+
 
 # ------------------------------------------------------------------
 # Delegate that wraps text even without spaces
@@ -65,8 +65,11 @@ class WrapAnywhereDelegate(QStyledItemDelegate):
     def paint(self, painter, option, index):  # type: ignore[override]
         self.initStyleOption(option, index)
         painter.save()
-        painter.drawText(option.rect, self._flags, str(index.data(Qt.DisplayRole) or ""))
+        painter.drawText(
+            option.rect, self._flags, str(index.data(Qt.DisplayRole) or "")
+        )
         painter.restore()
+
 
 # ------------------------------------------------------------------
 # OptionTable
@@ -89,7 +92,9 @@ class OptionTable(QTableWidget):
         hh.setStretchLastSection(False)
 
         self.verticalHeader().setVisible(False)
-        self.verticalHeader().setDefaultSectionSize(self.fontMetrics().lineSpacing() + 6)
+        self.verticalHeader().setDefaultSectionSize(
+            self.fontMetrics().lineSpacing() + 6
+        )
         self.setWordWrap(True)
 
         wrap = WrapAnywhereDelegate(self)
@@ -167,7 +172,7 @@ class OptionTable(QTableWidget):
                 continue
             text = text[:MAX_CHARS]
             answer = self.item(r, 3).text().strip()[:MAX_CHARS]
-            expl   = self.item(r, 4).text().strip()[:MAX_CHARS]
+            expl = self.item(r, 4).text().strip()[:MAX_CHARS]
             is_corr = self.cellWidget(r, 2).findChild(QCheckBox).isChecked()  # type: ignore
             if is_corr:
                 correct += 1
@@ -181,6 +186,7 @@ class OptionTable(QTableWidget):
             )
         return opts, correct
 
+
 # ------------------------------------------------------------------
 # ExamConfigDialog
 # ------------------------------------------------------------------
@@ -193,16 +199,20 @@ class ExamConfigDialog(QDialog):
         self.config: Optional[ExamConfig] = None
 
         self.cb_subject = QComboBox()
-        self.spin_time = QSpinBox(minimum=1, maximum=180, value=10)
+        self.spin_time = QSpinBox(minimum=1, maximum=999, value=90)
+
+        self.spin_questions = QSpinBox(minimum=1, maximum=999, value=60)
+
+        # match widths for spin boxes
+        width = self.spin_time.sizeHint().width()
+        self.spin_time.setFixedWidth(width)
+        self.spin_questions.setFixedWidth(width)
 
         self.rb_random = QRadioButton("Aleatorio")
         self.rb_errors = QRadioButton("Errores")
         self.group = QButtonGroup(self)
         self.group.addButton(self.rb_random)
         self.group.addButton(self.rb_errors)
-
-        self.spin_questions = QSpinBox(minimum=1, maximum=100)
-        self.spin_errors = QSpinBox(minimum=1, maximum=100)
 
         radio_widget = QWidget()
         hr = QHBoxLayout(radio_widget)
@@ -214,9 +224,8 @@ class ExamConfigDialog(QDialog):
         form = QFormLayout()
         form.addRow("Materia:", self.cb_subject)
         form.addRow("Tiempo límite (min):", self.spin_time)
-        form.addRow("Selector:", radio_widget)
         form.addRow("Nº preguntas:", self.spin_questions)
-        form.addRow("Nº errores:", self.spin_errors)
+        form.addRow("Selector:", radio_widget)
 
         self.buttons = QDialogButtonBox(QDialogButtonBox.Ok | QDialogButtonBox.Cancel)
         self.buttons.accepted.connect(self.accept)
@@ -243,7 +252,6 @@ class ExamConfigDialog(QDialog):
         self.rb_random.toggled.connect(self._update_selector)
         self.rb_errors.toggled.connect(self._update_selector)
         self.spin_questions.valueChanged.connect(self._update_accept)
-        self.spin_errors.valueChanged.connect(self._update_accept)
 
     # ---------------- helpers -----------------
     def _load_subjects(self) -> None:
@@ -252,7 +260,10 @@ class ExamConfigDialog(QDialog):
 
         with SessionLocal() as s:
             insp = inspect(s.bind)
-            tables = {tbl: {c["name"] for c in insp.get_columns(tbl)} for tbl in insp.get_table_names()}
+            tables = {
+                tbl: {c["name"] for c in insp.get_columns(tbl)}
+                for tbl in insp.get_table_names()
+            }
 
             candidates = [
                 ("question", "materia"),
@@ -282,11 +293,6 @@ class ExamConfigDialog(QDialog):
             self.buttons.button(QDialogButtonBox.Ok).setEnabled(False)
 
     def _update_selector(self) -> None:
-        random_mode = self.rb_random.isChecked()
-        self.spin_questions.setVisible(random_mode)
-        self.spin_questions.setEnabled(random_mode)
-        self.spin_errors.setVisible(not random_mode)
-        self.spin_errors.setEnabled(not random_mode)
         self._update_accept()
 
     def _update_accept(self) -> None:
@@ -294,24 +300,25 @@ class ExamConfigDialog(QDialog):
         self.lbl_no_subjects.setVisible(not has_items)
         subject_ok = bool(self.cb_subject.currentText().strip()) and has_items
         time_ok = self.spin_time.value() > 0
-        if self.rb_random.isChecked():
-            sel_ok = self.spin_questions.value() > 0
-        elif self.rb_errors.isChecked():
-            sel_ok = self.spin_errors.value() > 0
-        else:
-            sel_ok = False
-        self.buttons.button(QDialogButtonBox.Ok).setEnabled(subject_ok and time_ok and sel_ok)
+        questions_ok = self.spin_questions.value() > 0
+        selector_ok = self.group.checkedButton() is not None
+        self.buttons.button(QDialogButtonBox.Ok).setEnabled(
+            subject_ok and time_ok and questions_ok and selector_ok
+        )
 
     # ---------------- accept -------------------
     def accept(self) -> None:  # type: ignore[override]
+        selector = (
+            SelectorTypeEnum.ALEATORIO
+            if self.rb_random.isChecked()
+            else SelectorTypeEnum.ERRORES
+        )
         self.config = ExamConfig(
             exam_id=0,
             subject=self.cb_subject.currentText().strip(),
-            selector_type=SelectorTypeEnum.ALEATORIO
-            if self.rb_random.isChecked()
-            else SelectorTypeEnum.ERRORES,
-            num_questions=self.spin_questions.value() if self.rb_random.isChecked() else None,
-            error_threshold=self.spin_errors.value() if self.rb_errors.isChecked() else None,
+            selector_type=selector,
+            num_questions=self.spin_questions.value(),
+            error_threshold=None,
             time_limit=self.spin_time.value(),
         )
         super().accept()
@@ -321,6 +328,7 @@ class ExamConfigDialog(QDialog):
     def get_config(cls, parent: QWidget | None = None) -> Optional[ExamConfig]:
         dlg = cls(parent)
         return dlg.config if dlg.exec() == cls.Accepted else None
+
 
 # ------------------------------------------------------------------
 # QuestionDialog
@@ -337,13 +345,14 @@ class QuestionDialog(QDialog):
         self.le_reference = QLineEdit()
         self.le_reference.setPlaceholderText("ej.: exam_1025")
 
-        top = QHBoxLayout(); top.setContentsMargins(0, 0, 0, 0)
+        top = QHBoxLayout()
+        top.setContentsMargins(0, 0, 0, 0)
         top.addWidget(self.cb_subject)
         top.addSpacing(20)
         top.addWidget(QLabel("Referencia:"))
         top.addWidget(self.le_reference)
-        w_top = QWidget(); w_top.setLayout(top)
-        
+        w_top = QWidget()
+        w_top.setLayout(top)
 
         # prompt
         self.prompt = QPlainTextEdit()
@@ -351,7 +360,10 @@ class QuestionDialog(QDialog):
         self.counter = QLabel("0/3000", alignment=Qt.AlignRight)
         self.prompt.textChanged.connect(self._update_counter)
 
-        w_prompt = QWidget(); hp = QHBoxLayout(w_prompt); hp.setContentsMargins(0, 0, 0, 0); hp.addWidget(self.prompt)
+        w_prompt = QWidget()
+        hp = QHBoxLayout(w_prompt)
+        hp.setContentsMargins(0, 0, 0, 0)
+        hp.addWidget(self.prompt)
 
         # table options
         self.table = OptionTable(self)
@@ -363,7 +375,9 @@ class QuestionDialog(QDialog):
         form.addRow("", self.counter)
         form.addRow(QLabel("Opciones (texto, explicación, correcta):"))
         form.addRow(self.table)
-        h = QHBoxLayout(); h.addWidget(add_btn); h.addStretch(1)
+        h = QHBoxLayout()
+        h.addWidget(add_btn)
+        h.addStretch(1)
         form.addRow(h)
 
         buttons = QDialogButtonBox(QDialogButtonBox.Save | QDialogButtonBox.Cancel)
@@ -393,22 +407,30 @@ class QuestionDialog(QDialog):
     # ---------------- guardar -----------------
     def accept(self):  # type: ignore[override]  noqa: D401
         subj = self.cb_subject.currentText().strip()
-        ref = self.le_reference.text().strip() 
+        ref = self.le_reference.text().strip()
         prompt_txt = self.prompt.toPlainText().strip()
 
         if not subj or not prompt_txt:
-            QMessageBox.warning(self, "Datos incompletos", "Materia y enunciado obligatorios.")
+            QMessageBox.warning(
+                self, "Datos incompletos", "Materia y enunciado obligatorios."
+            )
             return
 
         options, correct = self.table.collect()
         if len(options) < 2 or correct == 0:
-            QMessageBox.warning(self, "Datos incompletos", "Añade ≥2 opciones y marca la(s) correcta(s).")
+            QMessageBox.warning(
+                self,
+                "Datos incompletos",
+                "Añade ≥2 opciones y marca la(s) correcta(s).",
+            )
             return
 
         engine = m.get_engine(self.db_path)
         with m.Session(engine) as s:
-            subj_obj = s.query(m.Subject).filter_by(name=subj).first() or m.Subject(name=subj)
-            ref_obj  = s.query(m.Subject).filter_by(name=ref).first() if ref else None
+            subj_obj = s.query(m.Subject).filter_by(name=subj).first() or m.Subject(
+                name=subj
+            )
+            ref_obj = s.query(m.Subject).filter_by(name=ref).first() if ref else None
 
             q = m.MCQQuestion(
                 prompt=prompt_txt,
@@ -419,7 +441,9 @@ class QuestionDialog(QDialog):
             s.add(q)
             s.commit()
 
-        QMessageBox.information(self, "Pregunta guardada", "La pregunta se ha almacenado correctamente.")
+        QMessageBox.information(
+            self, "Pregunta guardada", "La pregunta se ha almacenado correctamente."
+        )
         super().accept()
 
 
