@@ -28,11 +28,20 @@ class ExamConfig:
 
 
 def _select_random(session: Session, exam_id: int, limit: int) -> List[Question]:
+    attempts_sub = (
+        select(
+            AttemptQuestion.question_id,
+            func.count(AttemptQuestion.id).label("attempts_count"),
+        )
+        .group_by(AttemptQuestion.question_id)
+        .subquery()
+    )
     stmt = (
         select(Question)
         .join(ExamQuestion, ExamQuestion.question_id == Question.id)
+        .outerjoin(attempts_sub, attempts_sub.c.question_id == Question.id)
         .filter(ExamQuestion.exam_id == exam_id)
-        .order_by(func.random())
+        .order_by(func.coalesce(attempts_sub.c.attempts_count, 0).asc(), func.random())
         .limit(limit)
     )
     return list(session.scalars(stmt))
@@ -41,18 +50,37 @@ def _select_random(session: Session, exam_id: int, limit: int) -> List[Question]
 def _select_by_errors(
     session: Session, exam_id: int, limit: int
 ) -> List[Question]:
-    error_count = func.count(AttemptQuestion.id)
-    stmt = (
-        select(Question, error_count.label("errors"))
-        .join(ExamQuestion, ExamQuestion.question_id == Question.id)
-        .outerjoin(
-            AttemptQuestion,
-            (AttemptQuestion.question_id == Question.id)
-            & (AttemptQuestion.is_correct.is_(False)),
+    error_sub = (
+        select(
+            AttemptQuestion.question_id,
+            func.count(AttemptQuestion.id).label("errors_count"),
         )
+        .where(AttemptQuestion.is_correct.is_(False))
+        .group_by(AttemptQuestion.question_id)
+        .subquery()
+    )
+    attempts_sub = (
+        select(
+            AttemptQuestion.question_id,
+            func.count(AttemptQuestion.id).label("attempts_count"),
+        )
+        .group_by(AttemptQuestion.question_id)
+        .subquery()
+    )
+    stmt = (
+        select(
+            Question,
+            func.coalesce(error_sub.c.errors_count, 0).label("errors"),
+            func.coalesce(attempts_sub.c.attempts_count, 0).label("attempts"),
+        )
+        .join(ExamQuestion, ExamQuestion.question_id == Question.id)
+        .outerjoin(error_sub, error_sub.c.question_id == Question.id)
+        .outerjoin(attempts_sub, attempts_sub.c.question_id == Question.id)
         .filter(ExamQuestion.exam_id == exam_id)
-        .group_by(Question.id)
-        .order_by(error_count.desc())
+        .order_by(
+            func.coalesce(error_sub.c.errors_count, 0).desc(),
+            func.coalesce(attempts_sub.c.attempts_count, 0).asc(),
+        )
         .limit(limit)
     )
     results = session.execute(stmt).all()
