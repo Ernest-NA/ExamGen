@@ -7,6 +7,7 @@ para crear / actualizar examgen.db en la raíz del proyecto.
 """
 
 import datetime as _dt
+from enum import Enum as _Enum
 from pathlib import Path
 from typing import List
 
@@ -20,6 +21,8 @@ from sqlalchemy import (
     String,
     Text,
     create_engine,
+    Enum as SQLAEnum,
+    inspect,
 )
 from sqlalchemy.orm import (
     DeclarativeBase,
@@ -28,6 +31,11 @@ from sqlalchemy.orm import (
     relationship,
     Session,
 )
+
+
+class SelectorTypeEnum(str, _Enum):
+    ALEATORIO = "ALEATORIO"
+    ERRORES = "ERRORES"
 
 # -----------------------------------------------------------------------------
 # Declarative base común
@@ -135,30 +143,48 @@ class Exam(Base):
 class Attempt(Base):
     __tablename__ = "attempt"
 
-    timestamp: Mapped[_dt.datetime] = mapped_column(
+    exam_id: Mapped[int] = mapped_column(ForeignKey("exam.id"), nullable=False)
+    subject: Mapped[str] = mapped_column(String(200), nullable=False)
+    selector_type: Mapped[SelectorTypeEnum] = mapped_column(
+        SQLAEnum(SelectorTypeEnum), nullable=False
+    )
+    num_questions: Mapped[int | None] = mapped_column(Integer)
+    error_threshold: Mapped[int | None] = mapped_column(Integer)
+    time_limit: Mapped[int] = mapped_column(Integer, nullable=False)
+    started_at: Mapped[_dt.datetime] = mapped_column(
         DateTime(timezone=True), default=_dt.datetime.utcnow, nullable=False
     )
-    score: Mapped[float] = mapped_column(Float, default=0.0)
+    ended_at: Mapped[_dt.datetime | None] = mapped_column(DateTime(timezone=True))
+    score: Mapped[int | None] = mapped_column(Integer)
 
-    exam_id: Mapped[int] = mapped_column(ForeignKey("exam.id"), nullable=False)
-    exam:    Mapped[Exam] = relationship(back_populates="attempts")
-
-    answers: Mapped[List["AttemptAnswer"]] = relationship(
+    exam: Mapped["Exam"] = relationship(back_populates="attempts")
+    questions: Mapped[List["AttemptQuestion"]] = relationship(
         back_populates="attempt", cascade="all, delete-orphan"
     )
 
 
-class AttemptAnswer(Base):
-    __tablename__ = "attempt_answer"
+class AttemptQuestion(Base):
+    __tablename__ = "attempt_question"
 
-    attempt_id:         Mapped[int] = mapped_column(ForeignKey("attempt.id"), nullable=False)
-    question_id:        Mapped[int] = mapped_column(ForeignKey("question.id"), nullable=False)
-    selected_option_id: Mapped[int | None] = mapped_column(ForeignKey("answer_option.id"))
-    is_correct:         Mapped[bool] = mapped_column(Boolean, default=False)
+    attempt_id: Mapped[int] = mapped_column(ForeignKey("attempt.id"), nullable=False)
+    question_id: Mapped[int] = mapped_column(ForeignKey("question.id"), nullable=False)
+    selected_option: Mapped[str | None] = mapped_column(String(200))
+    is_correct: Mapped[bool | None] = mapped_column(Boolean)
+    score: Mapped[int | None] = mapped_column(Integer)
 
-    attempt:         Mapped[Attempt]       = relationship(back_populates="answers")
-    question:        Mapped[Question]      = relationship()
-    selected_option: Mapped[AnswerOption | None] = relationship()
+    attempt: Mapped["Attempt"] = relationship(back_populates="questions")
+    question: Mapped[Question] = relationship()
+
+
+def _create_examiner_tables(engine) -> None:
+    insp = inspect(engine)
+    tables = []
+    if not insp.has_table("attempt"):
+        tables.append(Attempt.__table__)
+    if not insp.has_table("attempt_question"):
+        tables.append(AttemptQuestion.__table__)
+    if tables:
+        Base.metadata.create_all(bind=engine, tables=tables)
 
 # -----------------------------------------------------------------------------
 # Utilidades de BD
@@ -171,6 +197,8 @@ def get_engine(db_path: str | Path = "examgen.db"):
 def init_db(db_path: str | Path = "examgen.db") -> None:
     engine = get_engine(db_path)
     Base.metadata.create_all(engine)        # crea tablas que falten
+
+    _create_examiner_tables(engine)
 
     with engine.begin() as con:
         con.exec_driver_sql("PRAGMA foreign_keys = ON")
@@ -196,3 +224,4 @@ def init_db(db_path: str | Path = "examgen.db") -> None:
 
 if __name__ == "__main__":
     init_db()
+    _create_examiner_tables(get_engine())
