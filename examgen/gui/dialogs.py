@@ -1,15 +1,18 @@
 from __future__ import annotations
 from pathlib import Path
-from typing import List
+from typing import List, Optional
 
 from PySide6.QtCore import Qt, QSize
 from PySide6.QtGui import QIcon, QTextOption
-from PySide6.QtWidgets import QLineEdit  # añade al import
+from PySide6.QtWidgets import QLineEdit
 from PySide6.QtWidgets import (
     QCheckBox,
     QComboBox,
+    QButtonGroup,
     QDialog,
     QDialogButtonBox,
+    QRadioButton,
+    QSpinBox,
     QFormLayout,
     QLabel,
     QMessageBox,
@@ -27,6 +30,7 @@ from PySide6.QtWidgets import (
 )
 
 from examgen import models as m
+from examgen.services.exam_service import ExamConfig, SelectorTypeEnum
 
 DB_PATH = Path("examgen.db")
 MAX_CHARS = 3000
@@ -169,6 +173,110 @@ class OptionTable(QTableWidget):
         return opts, correct
 
 # ------------------------------------------------------------------
+# ExamConfigDialog
+# ------------------------------------------------------------------
+class ExamConfigDialog(QDialog):
+    """Dialog to configure exam parameters."""
+
+    def __init__(self, parent: QWidget | None = None):
+        super().__init__(parent)
+        self.setWindowTitle("Configurar examen")
+        self.config: Optional[ExamConfig] = None
+
+        self.cb_subject = QComboBox()
+        self.spin_time = QSpinBox(minimum=1, maximum=180, value=10)
+
+        self.rb_random = QRadioButton("Aleatorio")
+        self.rb_errors = QRadioButton("Errores")
+        self.group = QButtonGroup(self)
+        self.group.addButton(self.rb_random)
+        self.group.addButton(self.rb_errors)
+
+        self.spin_questions = QSpinBox(minimum=1, maximum=100)
+        self.spin_errors = QSpinBox(minimum=1, maximum=100)
+
+        radio_widget = QWidget()
+        hr = QHBoxLayout(radio_widget)
+        hr.setContentsMargins(0, 0, 0, 0)
+        hr.addWidget(self.rb_random)
+        hr.addWidget(self.rb_errors)
+        hr.addStretch(1)
+
+        form = QFormLayout()
+        form.addRow("Materia:", self.cb_subject)
+        form.addRow("Tiempo límite (min):", self.spin_time)
+        form.addRow("Selector:", radio_widget)
+        form.addRow("Nº preguntas:", self.spin_questions)
+        form.addRow("Nº errores:", self.spin_errors)
+
+        self.buttons = QDialogButtonBox(QDialogButtonBox.Ok | QDialogButtonBox.Cancel)
+        self.buttons.accepted.connect(self.accept)
+        self.buttons.rejected.connect(self.reject)
+        self.buttons.button(QDialogButtonBox.Ok).setEnabled(False)
+
+        root = QVBoxLayout(self)
+        root.addLayout(form)
+        root.addWidget(self.buttons)
+
+        self._load_subjects()
+        self._update_selector()
+
+        self.cb_subject.currentTextChanged.connect(self._update_accept)
+        self.spin_time.valueChanged.connect(self._update_accept)
+        self.rb_random.toggled.connect(self._update_selector)
+        self.rb_errors.toggled.connect(self._update_selector)
+        self.spin_questions.valueChanged.connect(self._update_accept)
+        self.spin_errors.valueChanged.connect(self._update_accept)
+
+    # ---------------- helpers -----------------
+    def _load_subjects(self) -> None:
+        with m.Session(m.get_engine(DB_PATH)) as s:
+            if hasattr(m.Exam, "subject"):
+                names = [r[0] for r in s.query(m.Exam.subject).distinct().all()]
+            else:
+                names = []
+        self.cb_subject.addItems(sorted(names))
+
+    def _update_selector(self) -> None:
+        random_mode = self.rb_random.isChecked()
+        self.spin_questions.setVisible(random_mode)
+        self.spin_questions.setEnabled(random_mode)
+        self.spin_errors.setVisible(not random_mode)
+        self.spin_errors.setEnabled(not random_mode)
+        self._update_accept()
+
+    def _update_accept(self) -> None:
+        subject_ok = bool(self.cb_subject.currentText().strip())
+        time_ok = self.spin_time.value() > 0
+        if self.rb_random.isChecked():
+            sel_ok = self.spin_questions.value() > 0
+        elif self.rb_errors.isChecked():
+            sel_ok = self.spin_errors.value() > 0
+        else:
+            sel_ok = False
+        self.buttons.button(QDialogButtonBox.Ok).setEnabled(subject_ok and time_ok and sel_ok)
+
+    # ---------------- accept -------------------
+    def accept(self) -> None:  # type: ignore[override]
+        self.config = ExamConfig(
+            exam_id=0,
+            subject=self.cb_subject.currentText().strip(),
+            selector_type=SelectorTypeEnum.ALEATORIO
+            if self.rb_random.isChecked()
+            else SelectorTypeEnum.ERRORES,
+            num_questions=self.spin_questions.value() if self.rb_random.isChecked() else None,
+            error_threshold=self.spin_errors.value() if self.rb_errors.isChecked() else None,
+            time_limit=self.spin_time.value(),
+        )
+        super().accept()
+
+    # ---------------- convenience -------------
+    @classmethod
+    def get_config(cls, parent: QWidget | None = None) -> Optional[ExamConfig]:
+        dlg = cls(parent)
+        return dlg.config if dlg.exec() == cls.Accepted else None
+
+# ------------------------------------------------------------------
 # QuestionDialog
 # ------------------------------------------------------------------
 class QuestionDialog(QDialog):
@@ -267,3 +375,13 @@ class QuestionDialog(QDialog):
 
         QMessageBox.information(self, "Pregunta guardada", "La pregunta se ha almacenado correctamente.")
         super().accept()
+
+
+if __name__ == "__main__":
+    import sys
+    from PySide6.QtWidgets import QApplication
+
+    app = QApplication(sys.argv)
+    dlg = ExamConfigDialog()
+    if dlg.exec() == dlg.Accepted:
+        print(dlg.config)
