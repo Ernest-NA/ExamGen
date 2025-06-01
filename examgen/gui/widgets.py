@@ -24,6 +24,7 @@ from examgen.services.exam_service import (
     create_attempt,
     evaluate_attempt,
 )
+from examgen.gui.dialogs import ResultsDialog
 
 from examgen import models as m
 
@@ -221,11 +222,8 @@ class ExamWindow(QWidget):
         self.attempt.ended_at = datetime.utcnow()
         self.attempt = evaluate_attempt(self.attempt.id)
 
-        msg = "Tiempo finalizado" if auto else "Examen entregado"
-        result = f"{msg}.\nPuntuaci\u00f3n: {self.attempt.score}/{len(self.attempt.questions)}"
-
         def _show() -> None:
-            QMessageBox.information(self, "Resultado", result)
+            ResultsDialog.show_for_attempt(self.attempt, self)
             self.close()
 
         QTimer.singleShot(0, _show)
