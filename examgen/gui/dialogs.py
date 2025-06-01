@@ -199,6 +199,7 @@ class ExamConfigDialog(QDialog):
         self.config: Optional[ExamConfig] = None
 
         self.cb_subject = QComboBox()
+        self.cb_subject.setEditable(True)
         self.spin_time = QSpinBox(minimum=1, maximum=999, value=90)
 
         self.spin_questions = QSpinBox(minimum=1, maximum=999, value=60)
@@ -283,9 +284,10 @@ class ExamConfigDialog(QDialog):
 
         self.cb_subject.addItems(names)
 
-        completer = QCompleter(self.cb_subject.model(), self)
-        completer.setCaseSensitivity(Qt.CaseInsensitive)
-        self.cb_subject.setCompleter(completer)
+        if self.cb_subject.isEditable():
+            completer = QCompleter(self.cb_subject.model(), self)
+            completer.setCaseSensitivity(Qt.CaseInsensitive)
+            self.cb_subject.setCompleter(completer)
 
         no_subjects = len(names) == 0
         self.lbl_no_subjects.setVisible(no_subjects)
