@@ -285,9 +285,13 @@ class ExamConfigDialog(QDialog):
         self.cb_subject.addItems(names)
 
         if self.cb_subject.isEditable():
+            # ensure editable combo before attaching a completer
+            self.cb_subject.setEditable(True)
             completer = QCompleter(self.cb_subject.model(), self)
             completer.setCaseSensitivity(Qt.CaseInsensitive)
             self.cb_subject.setCompleter(completer)
+        else:
+            self.cb_subject.setCompleter(None)
 
         no_subjects = len(names) == 0
         self.lbl_no_subjects.setVisible(no_subjects)
