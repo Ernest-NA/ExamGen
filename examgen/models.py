@@ -61,8 +61,9 @@ class Subject(Base):
     name: Mapped[str] = mapped_column(String(200), unique=True, nullable=False)
     description: Mapped[str | None] = mapped_column(Text())
 
-    questions:   Mapped[List["Question"]] = relationship(back_populates="subject",   foreign_keys="Question.subject_id")
-    references_: Mapped[List["Question"]] = relationship(back_populates="reference", foreign_keys="Question.reference_id")
+    questions: Mapped[List["Question"]] = relationship(
+        back_populates="subject", foreign_keys="Question.subject_id"
+    )
 
 
 class Question(Base):

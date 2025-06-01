@@ -179,16 +179,13 @@ class QuestionDialog(QDialog):
         self.resize(1920, 1080)
 
         # subject / reference
-        self.cb_subject   = QComboBox(editable=True, fixedWidth=500)
+        self.cb_subject = QComboBox(editable=True, fixedWidth=500)
         self.le_reference = QLineEdit()
         self.le_reference.setPlaceholderText("ej.: exam_1025")
 
         top = QHBoxLayout(); top.setContentsMargins(0, 0, 0, 0)
         top.addWidget(self.cb_subject)
         top.addSpacing(20)
-        top.addWidget(QLabel("Referencia:"))
-        top.addWidget(self.cb_reference)
-        top.addStretch(1)
         top.addWidget(QLabel("Referencia:"))
         top.addWidget(self.le_reference)
         w_top = QWidget(); w_top.setLayout(top)
@@ -223,6 +220,8 @@ class QuestionDialog(QDialog):
         root.addLayout(form)
         root.addWidget(buttons)
 
+        self._load_subjects()
+
     # ---------------- helpers -----------------
     def _update_counter(self):
         txt = self.prompt.toPlainText()
@@ -232,13 +231,11 @@ class QuestionDialog(QDialog):
         self.counter.setText(f"{len(self.prompt.toPlainText())}/{MAX_CHARS}")
 
     def _load_subjects(self):
-        """Carga materias existentes en ambos combobox y deja placeholders."""
+        """Carga materias existentes en el combo de materia."""
         with m.Session(m.get_engine(self.db_path)) as s:
             names = sorted(sub.name for sub in s.query(m.Subject).all())
         self.cb_subject.addItems(names)
-        self.cb_reference.addItems(names)
         self.cb_subject.setPlaceholderText("Seleccione / escriba…")
-        self.cb_reference.setPlaceholderText("Seleccione / escriba…")
 
     # ---------------- guardar -----------------
     def accept(self):  # type: ignore[override]  noqa: D401
@@ -258,9 +255,12 @@ class QuestionDialog(QDialog):
         engine = m.get_engine(self.db_path)
         with m.Session(engine) as s:
             subj_obj = s.query(m.Subject).filter_by(name=subj).first() or m.Subject(name=subj)
-            ref_obj  = s.query(m.Subject).filter_by(name=ref).first() if ref else None
 
-            q = m.MCQQuestion(prompt=prompt_txt, subject=subj_obj, reference=ref or None,)
+            q = m.MCQQuestion(
+                prompt=prompt_txt,
+                subject=subj_obj,
+                reference=ref or None,
+            )
             q.options = options
             s.add(q)
             s.commit()
