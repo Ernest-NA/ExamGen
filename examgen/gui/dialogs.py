@@ -32,6 +32,7 @@ from PySide6.QtWidgets import (
 
 from examgen import models as m
 from examgen.models import SessionLocal, Question
+from sqlalchemy import inspect, text
 from examgen.services.exam_service import (
     ExamConfig,
     SelectorTypeEnum,
@@ -247,14 +248,28 @@ class ExamConfigDialog(QDialog):
     # ---------------- helpers -----------------
     def _load_subjects(self) -> None:
         """Populate subject combo from the database."""
+        names: List[str] = []
+
         with SessionLocal() as s:
-            subjects = (
-                s.query(Question.subject)
-                .distinct()
-                .order_by(Question.subject)
-                .all()
-            )
-        names = [row[0] for row in subjects]
+            insp = inspect(s.bind)
+            tables = {tbl: {c["name"] for c in insp.get_columns(tbl)} for tbl in insp.get_table_names()}
+
+            candidates = [
+                ("question", "materia"),
+                ("question", "subject"),
+                ("exam", "subject"),
+                ("exam", "materia"),
+                ("subject", "name"),
+            ]
+
+            for tbl, col in candidates:
+                if tbl in tables and col in tables[tbl]:
+                    sql = text(f'SELECT DISTINCT "{col}" FROM "{tbl}" ORDER BY "{col}"')
+                    rows = s.execute(sql).fetchall()
+                    names = [r[0] for r in rows if r[0]]
+                    if names:
+                        break
+
         self.cb_subject.addItems(names)
 
         completer = QCompleter(self.cb_subject.model(), self)
