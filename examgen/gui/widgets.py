@@ -3,6 +3,7 @@ from typing import List
 from datetime import datetime
 
 from PySide6.QtCore import Qt, QTimer
+from PySide6.QtGui import QKeySequence, QShortcut
 from PySide6.QtWidgets import (
     QButtonGroup,
     QDialog,
@@ -17,7 +18,7 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
-from examgen.models import Attempt, AttemptQuestion, SelectorTypeEnum
+from examgen.models import Attempt
 from examgen.services.exam_service import (
     ExamConfig,
     create_attempt,
@@ -54,15 +55,19 @@ class OptionTable(QTableWidget):
             if not txt_item or not txt_item.text().strip():
                 continue
             chk_item = self.item(r, 1)
-            is_corr = chk_item.checkState() == Qt.CheckState.Checked if chk_item else False
+            is_corr = (
+                chk_item.checkState() == Qt.CheckState.Checked if chk_item else False
+            )
             if is_corr:
                 correct += 1
-            opts.append(m.AnswerOption(text=txt_item.text().strip(), is_correct=is_corr))
+            opts.append(
+                m.AnswerOption(text=txt_item.text().strip(), is_correct=is_corr)
+            )
         return opts, correct
 
 
 class ExamWindow(QWidget):
-    """Window showing an ongoing exam attempt."""
+    """Window showing an ongoing exam attempt with pause and resume."""
 
     def __init__(self, attempt: Attempt, parent: QWidget | None = None) -> None:
         super().__init__(parent)
@@ -72,8 +77,10 @@ class ExamWindow(QWidget):
 
         self.lbl_timer = QLabel(alignment=Qt.AlignLeft)
         self.lbl_progress = QLabel(alignment=Qt.AlignRight)
+        self.btn_pause = QPushButton("Pausar", clicked=self._toggle_pause)
 
         header = QHBoxLayout()
+        header.addWidget(self.btn_pause)
         header.addWidget(self.lbl_timer)
         header.addStretch(1)
         header.addWidget(self.lbl_progress)
@@ -103,6 +110,9 @@ class ExamWindow(QWidget):
         root.addLayout(opts_box)
         root.addLayout(nav)
 
+        QShortcut(QKeySequence("Ctrl+P"), self, activated=self._toggle_pause)
+        QShortcut(QKeySequence("Ctrl+Return"), self, activated=self._finish_shortcut)
+
         self.timer = QTimer(self)
         self.timer.timeout.connect(self._tick)
         self.timer.start(1000)
@@ -117,6 +127,16 @@ class ExamWindow(QWidget):
 
     def _update_timer(self) -> None:
         self.lbl_timer.setText(self._fmt(self.remaining_seconds))
+
+    def _set_widgets_enabled(self, enabled: bool) -> None:
+        for rb in self.opts:
+            rb.setEnabled(enabled)
+        if enabled:
+            self.btn_prev.setEnabled(self.index > 0)
+            self.btn_next.setEnabled(True)
+        else:
+            self.btn_prev.setEnabled(False)
+            self.btn_next.setEnabled(False)
 
     def _tick(self) -> None:
         self.remaining_seconds -= 1
@@ -141,7 +161,7 @@ class ExamWindow(QWidget):
             rb.show()
             rb.setText(opt.text)
             rb.setChecked(aq.selected_option == opt.text)
-        for rb in self.opts[len(aq.question.options):]:
+        for rb in self.opts[len(aq.question.options) :]:
             rb.hide()
             rb.setChecked(False)
             rb.setText("")
@@ -151,6 +171,22 @@ class ExamWindow(QWidget):
             self.btn_next.setText("Finalizar")
         else:
             self.btn_next.setText("Siguiente \u2192")
+
+    def _toggle_pause(self) -> None:
+        if self.timer.isActive():
+            self.timer.stop()
+            self._set_widgets_enabled(False)
+            self.btn_pause.setText("Reanudar")
+        else:
+            if self.remaining_seconds <= 0:
+                return
+            self.timer.start(1000)
+            self._set_widgets_enabled(True)
+            self.btn_pause.setText("Pausar")
+
+    def _finish_shortcut(self) -> None:
+        if self.index == len(self.attempt.questions) - 1:
+            self._next()
 
     # ------------------------ nav -------------------------
     def _prev(self) -> None:
@@ -166,15 +202,23 @@ class ExamWindow(QWidget):
             self.index += 1
             self._load_question()
         else:
-            self.finish_exam(auto=False)
+            reply = QMessageBox.question(
+                self,
+                "Entregar examen",
+                "¿Seguro que deseas entregar el examen?",
+                QMessageBox.Yes | QMessageBox.No,
+            )
+            if reply == QMessageBox.Yes:
+                self.finish_exam(auto=False)
 
     # ------------------------ finish ----------------------
     def finish_exam(self, auto: bool) -> None:
+        if self.attempt.ended_at is not None:
+            return
         if self.timer.isActive():
             self.timer.stop()
         self._save_selection()
-        if self.attempt.ended_at is None:
-            self.attempt.ended_at = datetime.utcnow()
+        self.attempt.ended_at = datetime.utcnow()
         self.attempt = evaluate_attempt(self.attempt.id)
 
         msg = "Tiempo finalizado" if auto else "Examen entregado"
@@ -202,5 +246,6 @@ if __name__ == "__main__":  # pragma: no cover
     app = QApplication(sys.argv)
     dlg = ExamConfigDialog()
     if dlg.exec() == dlg.Accepted and dlg.config:
-        start_exam(dlg.config)
+        win = start_exam(dlg.config)
+        print("Botón Pausar disponible")
         sys.exit(app.exec())
