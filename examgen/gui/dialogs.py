@@ -3,7 +3,7 @@ from pathlib import Path
 from typing import List, Optional
 
 from PySide6.QtCore import Qt, QSize
-from PySide6.QtGui import QIcon, QTextOption
+from PySide6.QtGui import QIcon, QTextOption, QColor
 from PySide6.QtWidgets import QLineEdit
 from PySide6.QtWidgets import (
     QCheckBox,
@@ -30,7 +30,13 @@ from PySide6.QtWidgets import (
 )
 
 from examgen import models as m
-from examgen.services.exam_service import ExamConfig, SelectorTypeEnum
+from examgen.services.exam_service import (
+    ExamConfig,
+    SelectorTypeEnum,
+    Attempt,
+    AttemptQuestion,
+    evaluate_attempt,
+)
 
 DB_PATH = Path("examgen.db")
 MAX_CHARS = 3000
@@ -377,11 +383,78 @@ class QuestionDialog(QDialog):
         super().accept()
 
 
+class ResultsDialog(QDialog):
+    """Show exam results with per-question breakdown."""
+
+    def __init__(self, attempt: Attempt, parent: QWidget | None = None) -> None:
+        if attempt.ended_at is None:
+            attempt = evaluate_attempt(attempt.id)
+        super().__init__(parent)
+        self.attempt = attempt
+
+        self.setWindowTitle("\u00a1Resultados del examen!")
+
+        title = QLabel("\u00a1Resultados del examen!", alignment=Qt.AlignCenter)
+        score = attempt.score or 0
+        total = len(attempt.questions)
+        pct = round((score / total) * 100) if total else 0
+        summary = QLabel(
+            f"Puntuaci\u00f3n: {score} / {total}   ({pct} %)",
+            alignment=Qt.AlignCenter,
+        )
+
+        table = QTableWidget(len(attempt.questions), 4, self)
+        table.setHorizontalHeaderLabels(["#", "Pregunta", "Tu resp.", "Correcta"])
+        table.horizontalHeader().setStretchLastSection(True)
+        table.verticalHeader().setVisible(False)
+
+        for row, aq in enumerate(attempt.questions, start=0):
+            qitem = QTableWidgetItem(str(row + 1))
+            qitem.setFlags(Qt.ItemIsEnabled)
+            qitem.setTextAlignment(Qt.AlignCenter)
+            table.setItem(row, 0, qitem)
+
+            prompt = aq.question.prompt[:60]
+            pitem = QTableWidgetItem(prompt)
+            pitem.setFlags(Qt.ItemIsEnabled)
+            table.setItem(row, 1, pitem)
+
+            sel_text = aq.selected_option or ""
+            sitem = QTableWidgetItem(sel_text)
+            sitem.setFlags(Qt.ItemIsEnabled)
+            table.setItem(row, 2, sitem)
+
+            corr_text = next((o.text for o in aq.question.options if o.is_correct), "")
+            citem = QTableWidgetItem(corr_text)
+            citem.setFlags(Qt.ItemIsEnabled)
+            table.setItem(row, 3, citem)
+
+            color = QColor("lightgreen") if aq.is_correct else QColor("salmon")
+            for c in range(4):
+                table.item(row, c).setBackground(color)
+
+        buttons = QDialogButtonBox(QDialogButtonBox.Close, parent=self)
+        buttons.rejected.connect(self.reject)
+
+        root = QVBoxLayout(self)
+        root.addWidget(title)
+        root.addWidget(summary)
+        root.addWidget(table)
+        root.addWidget(buttons, alignment=Qt.AlignCenter)
+
+    @classmethod
+    def show_for_attempt(cls, attempt: Attempt, parent: QWidget | None = None) -> None:
+        dlg = cls(attempt, parent)
+        dlg.exec()
+
+
 if __name__ == "__main__":
     import sys
     from PySide6.QtWidgets import QApplication
+    from examgen.models import SessionLocal
 
     app = QApplication(sys.argv)
-    dlg = ExamConfigDialog()
-    if dlg.exec() == dlg.Accepted:
-        print(dlg.config)
+    with SessionLocal() as s:
+        attempt = s.query(Attempt).order_by(Attempt.id.desc()).first()
+    if attempt:
+        ResultsDialog.show_for_attempt(attempt)
