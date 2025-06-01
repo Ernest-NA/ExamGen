@@ -30,6 +30,7 @@ from sqlalchemy.orm import (
     mapped_column,
     relationship,
     Session,
+    sessionmaker,
 )
 
 
@@ -192,6 +193,10 @@ def _create_examiner_tables(engine) -> None:
 
 def get_engine(db_path: str | Path = "examgen.db"):
     return create_engine(f"sqlite:///{db_path}", echo=False, future=True)
+
+
+engine = get_engine()
+SessionLocal = sessionmaker(bind=engine, future=True)
 
 
 def init_db(db_path: str | Path = "examgen.db") -> None:
