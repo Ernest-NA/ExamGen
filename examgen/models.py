@@ -24,6 +24,7 @@ from sqlalchemy import (
     Enum as SQLAEnum,
     inspect,
 )
+from sqlalchemy.engine import Engine
 from sqlalchemy.orm import (
     DeclarativeBase,
     Mapped,
@@ -177,7 +178,15 @@ class AttemptQuestion(Base):
     question: Mapped[Question] = relationship()
 
 
-def _create_examiner_tables(engine) -> None:
+def _migrate_attempt_subject_column(engine: Engine) -> None:
+    """Add ``subject`` column to ``attempt`` table if missing."""
+    with engine.begin() as con:
+        cols = {row[1] for row in con.exec_driver_sql("PRAGMA table_info('attempt')")}
+        if "subject" not in cols:
+            con.exec_driver_sql("ALTER TABLE attempt ADD COLUMN subject TEXT")
+
+
+def _create_examiner_tables(engine: Engine) -> None:
     insp = inspect(engine)
     tables = []
     if not insp.has_table("attempt"):
@@ -187,13 +196,7 @@ def _create_examiner_tables(engine) -> None:
     if tables:
         Base.metadata.create_all(bind=engine, tables=tables)
 
-    # asegúrate de tener la columna subject en attempt (SQLite)
-    with engine.begin() as con:
-        cols = {
-            row[1] for row in con.exec_driver_sql("PRAGMA table_info('attempt')")
-        }
-        if "subject" not in cols:
-            con.exec_driver_sql("ALTER TABLE attempt ADD COLUMN subject TEXT")
+    _migrate_attempt_subject_column(engine)
 
 # -----------------------------------------------------------------------------
 # Utilidades de BD
