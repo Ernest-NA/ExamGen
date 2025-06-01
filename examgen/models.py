@@ -187,6 +187,14 @@ def _create_examiner_tables(engine) -> None:
     if tables:
         Base.metadata.create_all(bind=engine, tables=tables)
 
+    # asegúrate de tener la columna subject en attempt (SQLite)
+    with engine.begin() as con:
+        cols = {
+            row[1] for row in con.exec_driver_sql("PRAGMA table_info('attempt')")
+        }
+        if "subject" not in cols:
+            con.exec_driver_sql("ALTER TABLE attempt ADD COLUMN subject TEXT")
+
 # -----------------------------------------------------------------------------
 # Utilidades de BD
 # -----------------------------------------------------------------------------
