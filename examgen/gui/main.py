@@ -10,6 +10,29 @@ from __future__ import annotations
 
 import sys
 from pathlib import Path
+from dotenv import load_dotenv
+import logging
+import os
+
+env_path = Path(__file__).resolve().parents[2] / ".env"
+load_dotenv(env_path)
+
+DB_PATH = Path(os.getenv("EXAMGEN_DB", "examgen.db"))  # ruta BD
+LOG_LEVEL = os.getenv("LOG_LEVEL", "WARNING").upper()
+THEME = os.getenv("EXAMGEN_THEME", "Oscuro")
+
+logging.basicConfig(level=getattr(logging, LOG_LEVEL, logging.WARNING))
+if LOG_LEVEL == "DEBUG":
+    print(f"Loaded .env from {env_path}")
+    print(f"DB path: {DB_PATH}")
+    print(f"Theme  : {THEME}")
+
+try:
+    from examgen.config import set_theme  # type: ignore
+except Exception:
+    set_theme = None
+if set_theme:
+    set_theme(THEME)
 
 from PySide6.QtCore import Qt
 from PySide6.QtGui import QAction, QActionGroup, QFont
@@ -26,8 +49,6 @@ from examgen import models as m
 from examgen.gui.dialogs import QuestionDialog
 from examgen.gui.style import Style
 
-DB_PATH = Path("examgen.db")  # misma ruta que usan los diálogos
-
 
 class MainWindow(QMainWindow):
     """Ventana principal con cambio de tema en tiempo real."""
@@ -37,8 +58,8 @@ class MainWindow(QMainWindow):
         self.setWindowTitle("ExamGen")
         self.resize(1280, 720)
 
-        # Tema actual (oscuro por defecto)
-        self.current_theme = "Oscuro"
+        # Tema actual
+        self.current_theme = THEME
         self._apply_theme()
 
         # Widget central placeholder
