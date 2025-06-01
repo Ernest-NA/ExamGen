@@ -27,9 +27,11 @@ from PySide6.QtWidgets import (
     QWidget,
     QStyledItemDelegate,
     QStyleOptionViewItem,
+    QCompleter,
 )
 
 from examgen import models as m
+from examgen.models import SessionLocal, Question
 from examgen.services.exam_service import (
     ExamConfig,
     SelectorTypeEnum,
@@ -220,8 +222,16 @@ class ExamConfigDialog(QDialog):
         self.buttons.rejected.connect(self.reject)
         self.buttons.button(QDialogButtonBox.Ok).setEnabled(False)
 
+        self.lbl_no_subjects = QLabel(
+            "No hay materias disponibles. Importe preguntas primero.",
+            alignment=Qt.AlignCenter,
+        )
+        self.lbl_no_subjects.setStyleSheet("color: gray")
+        self.lbl_no_subjects.hide()
+
         root = QVBoxLayout(self)
         root.addLayout(form)
+        root.addWidget(self.lbl_no_subjects)
         root.addWidget(self.buttons)
 
         self._load_subjects()
@@ -236,12 +246,25 @@ class ExamConfigDialog(QDialog):
 
     # ---------------- helpers -----------------
     def _load_subjects(self) -> None:
-        with m.Session(m.get_engine(DB_PATH)) as s:
-            if hasattr(m.Exam, "subject"):
-                names = [r[0] for r in s.query(m.Exam.subject).distinct().all()]
-            else:
-                names = []
-        self.cb_subject.addItems(sorted(names))
+        """Populate subject combo from the database."""
+        with SessionLocal() as s:
+            subjects = (
+                s.query(Question.subject)
+                .distinct()
+                .order_by(Question.subject)
+                .all()
+            )
+        names = [row[0] for row in subjects]
+        self.cb_subject.addItems(names)
+
+        completer = QCompleter(self.cb_subject.model(), self)
+        completer.setCaseSensitivity(Qt.CaseInsensitive)
+        self.cb_subject.setCompleter(completer)
+
+        no_subjects = len(names) == 0
+        self.lbl_no_subjects.setVisible(no_subjects)
+        if no_subjects:
+            self.buttons.button(QDialogButtonBox.Ok).setEnabled(False)
 
     def _update_selector(self) -> None:
         random_mode = self.rb_random.isChecked()
@@ -252,7 +275,9 @@ class ExamConfigDialog(QDialog):
         self._update_accept()
 
     def _update_accept(self) -> None:
-        subject_ok = bool(self.cb_subject.currentText().strip())
+        has_items = self.cb_subject.count() > 0
+        self.lbl_no_subjects.setVisible(not has_items)
+        subject_ok = bool(self.cb_subject.currentText().strip()) and has_items
         time_ok = self.spin_time.value() > 0
         if self.rb_random.isChecked():
             sel_ok = self.spin_questions.value() > 0
