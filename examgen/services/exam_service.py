@@ -114,6 +114,9 @@ def create_attempt(config: ExamConfig) -> Attempt:
 
         session.commit()
         session.refresh(attempt)
+        # populate questions to avoid DetachedInstanceError after closing session
+        attempt.questions  # noqa: B018 - intentional attribute access for loading
+        session.expunge(attempt)
         return attempt
 
 
