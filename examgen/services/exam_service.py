@@ -15,6 +15,7 @@ from examgen.models import (
     ExamQuestion,
     SelectorTypeEnum,
     Exam,
+    Subject,
 )
 
 
@@ -94,10 +95,19 @@ def create_attempt(config: ExamConfig) -> Attempt:
     """Persist a new Attempt with its questions."""
     with SessionLocal() as session:
         if config.exam_id == 0:
-            exam = session.query(Exam).filter_by(subject=config.subject).first()
-            if not exam:
-                raise ValueError(f"No exam with subject {config.subject}")
-            config.exam_id = exam.id
+            exam_id = (
+                session.query(ExamQuestion.exam_id)
+                .join(Question, ExamQuestion.question_id == Question.id)
+                .join(Subject, Question.subject_id == Subject.id)
+                .filter(Subject.name == config.subject)
+                .limit(1)
+                .scalar()
+            )
+            if not exam_id:
+                raise ValueError(
+                    f"No questions found for subject '{config.subject}'"
+                )
+            config.exam_id = exam_id
 
         attempt = Attempt(
             exam_id=config.exam_id,
