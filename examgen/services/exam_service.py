@@ -14,7 +14,6 @@ from examgen.models import (
     Question,
     ExamQuestion,
     SelectorTypeEnum,
-    Exam,
     Subject,
 )
 
@@ -140,6 +139,16 @@ def create_attempt(config: ExamConfig) -> Attempt:
             threshold = config.error_threshold or 0
             questions = _select_by_errors(
                 session, config.exam_id, threshold, config.subject_id
+            )
+
+        if not questions:
+            questions = (
+                session.query(Question)
+                .join(Subject, Question.subject_id == Subject.id)
+                .filter(Subject.name == config.subject)
+                .order_by(func.random())
+                .limit(config.num_questions or 0)
+                .all()
             )
 
         if not questions:
