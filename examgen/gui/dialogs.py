@@ -230,6 +230,8 @@ class ExamConfigDialog(QDialog):
 
         self.buttons = QDialogButtonBox(QDialogButtonBox.Ok | QDialogButtonBox.Cancel)
         self.btn_ok = self.buttons.button(QDialogButtonBox.Ok)
+        self._STYLE_OK_DISABLED = "QPushButton { background: transparent; color: gray; }"
+        self._STYLE_OK_ENABLED = "QPushButton { background: #28a745; color: white; }"
         self.buttons.accepted.connect(self.accept)
         self.buttons.rejected.connect(self.reject)
 
@@ -296,8 +298,7 @@ class ExamConfigDialog(QDialog):
 
         no_subjects = len(names) == 0
         self.lbl_no_subjects.setVisible(no_subjects)
-        if no_subjects:
-            self.btn_ok.setEnabled(False)
+        self._update_ok_state()
 
     def _update_selector(self) -> None:
         self._update_ok_state()
@@ -313,6 +314,9 @@ class ExamConfigDialog(QDialog):
 
         ok_enabled = subject_ok and selector_ok and questions_ok and time_ok
         self.btn_ok.setEnabled(ok_enabled)
+        self.btn_ok.setStyleSheet(
+            self._STYLE_OK_ENABLED if ok_enabled else self._STYLE_OK_DISABLED
+        )
 
     # ---------------- accept -------------------
     def accept(self) -> None:  # type: ignore[override]
