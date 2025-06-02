@@ -233,6 +233,8 @@ def start_exam(config: ExamConfig, parent: QWidget | None = None) -> ExamWindow:
     attempt = create_attempt(config)
     win = ExamWindow(attempt, parent)
     win.show()
+    win.raise_()
+    win.activateWindow()
     return win
 
 
