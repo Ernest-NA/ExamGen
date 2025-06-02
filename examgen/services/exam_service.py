@@ -106,19 +106,43 @@ def create_attempt(config: ExamConfig) -> Attempt:
     """Persist a new Attempt with its questions."""
     with SessionLocal() as session:
         if config.exam_id == 0:
-            exam_id = (
-                session.query(ExamQuestion.exam_id)
-                .join(Question, ExamQuestion.question_id == Question.id)
+            stmt = (
+                session.query(Question)
                 .join(Subject, Question.subject_id == Subject.id)
-                .filter(Subject.name == config.subject)
-                .limit(1)
-                .scalar()
+                .filter(func.lower(Subject.name) == config.subject.lower())
+                .order_by(func.random())
+                .limit(config.num_questions or 0)
             )
-            if not exam_id:
+            questions = stmt.all()
+            if not questions:
                 raise ValueError(
                     f'No hay preguntas para la materia "{config.subject}"'
                 )
-            config.exam_id = exam_id
+        else:
+            if config.selector_type is SelectorTypeEnum.ALEATORIO:
+                questions = _select_random(
+                    session, config.exam_id, config.num_questions or 0, config.subject_id
+                )
+            else:
+                threshold = config.error_threshold or 0
+                questions = _select_by_errors(
+                    session, config.exam_id, threshold, config.subject_id
+                )
+
+            if not questions:
+                questions = (
+                    session.query(Question)
+                    .join(Subject, Question.subject_id == Subject.id)
+                    .filter(func.lower(Subject.name) == config.subject.lower())
+                    .order_by(func.random())
+                    .limit(config.num_questions or 0)
+                    .all()
+                )
+
+            if not questions:
+                raise ValueError(
+                    f'No hay preguntas para la materia "{config.subject}"'
+                )
 
         attempt = Attempt(
             exam_id=config.exam_id,
@@ -130,31 +154,6 @@ def create_attempt(config: ExamConfig) -> Attempt:
             started_at=datetime.utcnow(),
         )
         session.add(attempt)
-
-        if config.selector_type is SelectorTypeEnum.ALEATORIO:
-            questions = _select_random(
-                session, config.exam_id, config.num_questions or 0, config.subject_id
-            )
-        else:
-            threshold = config.error_threshold or 0
-            questions = _select_by_errors(
-                session, config.exam_id, threshold, config.subject_id
-            )
-
-        if not questions:
-            questions = (
-                session.query(Question)
-                .join(Subject, Question.subject_id == Subject.id)
-                .filter(Subject.name == config.subject)
-                .order_by(func.random())
-                .limit(config.num_questions or 0)
-                .all()
-            )
-
-        if not questions:
-            raise ValueError(
-                f'No hay preguntas para la materia "{config.subject}"'
-            )
 
         for q in questions:
             attempt.questions.append(AttemptQuestion(question=q))
