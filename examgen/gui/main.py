@@ -82,22 +82,6 @@ class MainWindow(QMainWindow):
 
         # --- Archivo ------------------------------------------------------ #
         archivo: QMenu = mb.addMenu("&Archivo")
-        archivo.addAction(
-            "Nueva &pregunta…",
-            self._open_question_dialog,
-        )
-        archivo.addSeparator()
-        archivo.addAction("Salir", QApplication.instance().quit)
-
-        # --- Examen ------------------------------------------------------- #
-        examen: QMenu | None = None
-        for act in mb.actions():
-            menu = act.menu()
-            if menu and menu.title().replace("&", "") == "Examen":
-                examen = menu
-                break
-        if examen is None:
-            examen = mb.addMenu("&Examen")
 
         window = self
 
@@ -109,10 +93,19 @@ class MainWindow(QMainWindow):
             if cfg:
                 start_exam(cfg, parent=window)
 
-        exam_action = QAction("Examinarse…", self)
+        exam_action = QAction("Hacer examen…", self)
         exam_action.setShortcut(QKeySequence("Ctrl+E"))
         exam_action.triggered.connect(_do_exam)
-        examen.addAction(exam_action)
+        archivo.addAction(exam_action)
+
+        new_question_action = QAction("Nueva &pregunta…", self)
+        new_question_action.triggered.connect(self._open_question_dialog)
+        archivo.addAction(new_question_action)
+        archivo.addSeparator()
+        archivo.addAction("Salir", QApplication.instance().quit)
+
+        # --- Examen ------------------------------------------------------- #
+        # Eliminado. Acción "Hacer examen..." movida al menú Archivo.
 
         # --- Tema --------------------------------------------------------- #
         tema: QMenu = mb.addMenu("&Tema")
