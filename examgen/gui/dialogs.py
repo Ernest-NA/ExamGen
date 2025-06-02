@@ -251,10 +251,9 @@ class ExamConfigDialog(QDialog):
         self._update_selector()
 
         self.cb_subject.currentTextChanged.connect(self._update_ok_state)
-        self.spin_time.valueChanged.connect(self._update_ok_state)
-        self.rb_random.clicked.connect(self._update_ok_state)
-        self.rb_errors.clicked.connect(self._update_ok_state)
+        self.group.buttonClicked.connect(self._update_ok_state)
         self.spin_questions.valueChanged.connect(self._update_ok_state)
+        self.spin_time.valueChanged.connect(self._update_ok_state)
 
     # ---------------- helpers -----------------
     def _load_subjects(self) -> None:
@@ -306,11 +305,13 @@ class ExamConfigDialog(QDialog):
     def _update_ok_state(self) -> None:
         has_items = self.cb_subject.count() > 0
         self.lbl_no_subjects.setVisible(not has_items)
+
         subject_ok = bool(self.cb_subject.currentText().strip()) and has_items
-        time_ok = self.spin_time.value() > 0
-        questions_ok = self.spin_questions.value() > 0
         selector_ok = self.group.checkedButton() is not None
-        ok_enabled = subject_ok and time_ok and questions_ok and selector_ok
+        questions_ok = self.spin_questions.value() > 0
+        time_ok = self.spin_time.value() > 0
+
+        ok_enabled = subject_ok and selector_ok and questions_ok and time_ok
         self.btn_ok.setEnabled(ok_enabled)
 
     # ---------------- accept -------------------
