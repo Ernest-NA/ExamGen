@@ -67,11 +67,12 @@ class OptionTable(QTableWidget):
         return opts, correct
 
 
-class ExamWindow(QWidget):
-    """Window showing an ongoing exam attempt with pause and resume."""
+class ExamDialog(QDialog):
+    """Modal dialog showing an ongoing exam attempt with pause and resume."""
 
     def __init__(self, attempt: Attempt, parent: QWidget | None = None) -> None:
         super().__init__(parent)
+        self.setWindowModality(Qt.ApplicationModal)
         self.attempt = attempt
         self.remaining_seconds = attempt.time_limit * 60
         self.index = 0
@@ -224,18 +225,16 @@ class ExamWindow(QWidget):
 
         def _show() -> None:
             ResultsDialog.show_for_attempt(self.attempt, self)
-            self.close()
+            self.accept()
 
         QTimer.singleShot(0, _show)
 
 
-def start_exam(config: ExamConfig, parent: QWidget | None = None) -> ExamWindow:
+def start_exam(config: ExamConfig, parent: QWidget | None = None) -> bool:
+    """Launch a modal exam dialog and return True if completed."""
     attempt = create_attempt(config)
-    win = ExamWindow(attempt, parent)
-    win.show()
-    win.raise_()
-    win.activateWindow()
-    return win
+    dlg = ExamDialog(attempt, parent)
+    return dlg.exec() == QDialog.Accepted
 
 
 if __name__ == "__main__":  # pragma: no cover
@@ -246,6 +245,6 @@ if __name__ == "__main__":  # pragma: no cover
     app = QApplication(sys.argv)
     dlg = ExamConfigDialog()
     if dlg.exec() == dlg.Accepted and dlg.config:
-        win = start_exam(dlg.config)
+        start_exam(dlg.config)
         print("Botón Pausar disponible")
         sys.exit(app.exec())
