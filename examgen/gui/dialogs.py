@@ -232,7 +232,6 @@ class ExamConfigDialog(QDialog):
         self.btn_ok = self.buttons.button(QDialogButtonBox.Ok)
         self.buttons.accepted.connect(self.accept)
         self.buttons.rejected.connect(self.reject)
-        self._update_ok_state()
 
         self.lbl_no_subjects = QLabel(
             "No hay materias disponibles. Importe preguntas primero.",
@@ -240,6 +239,8 @@ class ExamConfigDialog(QDialog):
         )
         self.lbl_no_subjects.setStyleSheet("color: gray")
         self.lbl_no_subjects.hide()
+
+        self._update_ok_state()
 
         root = QVBoxLayout(self)
         root.addLayout(form)
