@@ -43,6 +43,7 @@ from PySide6.QtWidgets import (
     QMenu,
     QMenuBar,
     QStatusBar,
+    QMessageBox,
 )
 
 from examgen import models as m
@@ -91,7 +92,10 @@ class MainWindow(QMainWindow):
 
             cfg = ExamConfigDialog.get_config(window)
             if cfg:
-                start_exam(cfg, parent=window)
+                try:
+                    start_exam(cfg, parent=window)
+                except ValueError as e:
+                    QMessageBox.warning(window, "No hay preguntas", str(e))
 
         exam_action = QAction("Hacer examen…", self)
         exam_action.setShortcut(QKeySequence("Ctrl+E"))
