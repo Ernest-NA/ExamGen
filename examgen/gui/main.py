@@ -35,7 +35,7 @@ if set_theme:
     set_theme(THEME)
 
 from PySide6.QtCore import Qt
-from PySide6.QtGui import QAction, QActionGroup, QFont
+from PySide6.QtGui import QAction, QActionGroup, QFont, QKeySequence
 from PySide6.QtWidgets import (
     QApplication,
     QLabel,
@@ -89,6 +89,31 @@ class MainWindow(QMainWindow):
         archivo.addSeparator()
         archivo.addAction("Salir", QApplication.instance().quit)
 
+        # --- Examen ------------------------------------------------------- #
+        examen: QMenu | None = None
+        for act in mb.actions():
+            menu = act.menu()
+            if menu and menu.title().replace("&", "") == "Examen":
+                examen = menu
+                break
+        if examen is None:
+            examen = mb.addMenu("&Examen")
+
+        window = self
+
+        def _do_exam() -> None:
+            from examgen.gui.dialogs import ExamConfigDialog
+            from examgen.gui.widgets import start_exam
+
+            cfg = ExamConfigDialog.get_config(window)
+            if cfg:
+                start_exam(cfg, parent=window)
+
+        exam_action = QAction("Examinarse…", self)
+        exam_action.setShortcut(QKeySequence("Ctrl+E"))
+        exam_action.triggered.connect(_do_exam)
+        examen.addAction(exam_action)
+
         # --- Tema --------------------------------------------------------- #
         tema: QMenu = mb.addMenu("&Tema")
         group = QActionGroup(self, exclusive=True)
@@ -114,11 +139,11 @@ class MainWindow(QMainWindow):
 
     def _update_status(self) -> None:
         with m.Session(m.get_engine(DB_PATH)) as s:
-            subject_count   = s.query(m.Subject).count()
-            question_count  = s.query(m.Question).count()
+            subject_count = s.query(m.Subject).count()
+            question_count = s.query(m.Question).count()
         self.statusBar().showMessage(
             f"Materias: {subject_count}   Preguntas: {question_count}"
-    )
+        )
 
     # --------------------------------------------------------------------- #
     #  Temas                                                                #
