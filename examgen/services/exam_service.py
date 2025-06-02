@@ -5,7 +5,7 @@ from datetime import datetime
 from typing import List
 
 from sqlalchemy import select, func
-from sqlalchemy.orm import Session, joinedload
+from sqlalchemy.orm import Session, joinedload, selectinload
 
 from examgen.models import (
     SessionLocal,
@@ -160,12 +160,12 @@ def create_attempt(config: ExamConfig) -> Attempt:
 
         session.commit()
 
-        from sqlalchemy.orm import selectinload
-
         attempt = (
             session.query(Attempt)
             .options(
-                selectinload(Attempt.questions).selectinload(AttemptQuestion.question)
+                selectinload(Attempt.questions)
+                .selectinload(AttemptQuestion.question)
+                .selectinload(Question.options)
             )
             .filter_by(id=attempt.id)
             .one()
