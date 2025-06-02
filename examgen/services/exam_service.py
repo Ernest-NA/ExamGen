@@ -159,10 +159,19 @@ def create_attempt(config: ExamConfig) -> Attempt:
             attempt.questions.append(AttemptQuestion(question=q))
 
         session.commit()
-        session.refresh(attempt)
-        # populate questions to avoid DetachedInstanceError after closing session
-        attempt.questions  # noqa: B018 - intentional attribute access for loading
-        session.expunge(attempt)
+
+        from sqlalchemy.orm import selectinload
+
+        attempt = (
+            session.query(Attempt)
+            .options(
+                selectinload(Attempt.questions).selectinload(AttemptQuestion.question)
+            )
+            .filter_by(id=attempt.id)
+            .one()
+        )
+
+        session.expunge_all()
         return attempt
 
 
