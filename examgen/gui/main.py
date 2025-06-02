@@ -59,7 +59,6 @@ class MainWindow(QMainWindow):
         super().__init__()
         self.setWindowTitle("ExamGen")
         self.resize(1280, 720)
-        self._open_exams: list[QWidget] = []
 
         # Tema actual
         self.current_theme = THEME
@@ -95,16 +94,14 @@ class MainWindow(QMainWindow):
             cfg = ExamConfigDialog.get_config(window)
             if cfg:
                 try:
-                    win = start_exam(cfg, parent=window)
+                    if start_exam(cfg, parent=window):
+                        print("Examen completado")
                 except ValueError:
                     QMessageBox.warning(
                         window,
                         "No hay preguntas",
-                        f"No hay preguntas para la materia \"{cfg.subject}\"",
+                        f'No hay preguntas para la materia "{cfg.subject}"',
                     )
-                else:
-                    window._open_exams.append(win)
-                    win.destroyed.connect(lambda: window._open_exams.remove(win))
 
         exam_action = QAction("Hacer examen…", self)
         exam_action.setShortcut(QKeySequence("Ctrl+E"))
