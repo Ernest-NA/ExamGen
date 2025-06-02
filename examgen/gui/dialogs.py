@@ -229,9 +229,10 @@ class ExamConfigDialog(QDialog):
         form.addRow("Selector:", radio_widget)
 
         self.buttons = QDialogButtonBox(QDialogButtonBox.Ok | QDialogButtonBox.Cancel)
+        self.btn_ok = self.buttons.button(QDialogButtonBox.Ok)
         self.buttons.accepted.connect(self.accept)
         self.buttons.rejected.connect(self.reject)
-        self.buttons.button(QDialogButtonBox.Ok).setEnabled(False)
+        self._update_ok_state()
 
         self.lbl_no_subjects = QLabel(
             "No hay materias disponibles. Importe preguntas primero.",
@@ -248,11 +249,11 @@ class ExamConfigDialog(QDialog):
         self._load_subjects()
         self._update_selector()
 
-        self.cb_subject.currentTextChanged.connect(self._update_accept)
-        self.spin_time.valueChanged.connect(self._update_accept)
-        self.rb_random.toggled.connect(self._update_selector)
-        self.rb_errors.toggled.connect(self._update_selector)
-        self.spin_questions.valueChanged.connect(self._update_accept)
+        self.cb_subject.currentTextChanged.connect(self._update_ok_state)
+        self.spin_time.valueChanged.connect(self._update_ok_state)
+        self.rb_random.clicked.connect(self._update_ok_state)
+        self.rb_errors.clicked.connect(self._update_ok_state)
+        self.spin_questions.valueChanged.connect(self._update_ok_state)
 
     # ---------------- helpers -----------------
     def _load_subjects(self) -> None:
@@ -296,21 +297,20 @@ class ExamConfigDialog(QDialog):
         no_subjects = len(names) == 0
         self.lbl_no_subjects.setVisible(no_subjects)
         if no_subjects:
-            self.buttons.button(QDialogButtonBox.Ok).setEnabled(False)
+            self.btn_ok.setEnabled(False)
 
     def _update_selector(self) -> None:
-        self._update_accept()
+        self._update_ok_state()
 
-    def _update_accept(self) -> None:
+    def _update_ok_state(self) -> None:
         has_items = self.cb_subject.count() > 0
         self.lbl_no_subjects.setVisible(not has_items)
         subject_ok = bool(self.cb_subject.currentText().strip()) and has_items
         time_ok = self.spin_time.value() > 0
         questions_ok = self.spin_questions.value() > 0
         selector_ok = self.group.checkedButton() is not None
-        self.buttons.button(QDialogButtonBox.Ok).setEnabled(
-            subject_ok and time_ok and questions_ok and selector_ok
-        )
+        ok_enabled = subject_ok and time_ok and questions_ok and selector_ok
+        self.btn_ok.setEnabled(ok_enabled)
 
     # ---------------- accept -------------------
     def accept(self) -> None:  # type: ignore[override]
