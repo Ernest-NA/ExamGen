@@ -94,8 +94,12 @@ class MainWindow(QMainWindow):
             if cfg:
                 try:
                     start_exam(cfg, parent=window)
-                except ValueError as e:
-                    QMessageBox.warning(window, "No hay preguntas", str(e))
+                except ValueError:
+                    QMessageBox.warning(
+                        window,
+                        "No hay preguntas",
+                        f"No hay preguntas para la materia \"{cfg.subject}\"",
+                    )
 
         exam_action = QAction("Hacer examen…", self)
         exam_action.setShortcut(QKeySequence("Ctrl+E"))
