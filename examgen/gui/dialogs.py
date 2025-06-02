@@ -32,7 +32,7 @@ from PySide6.QtWidgets import (
 
 from examgen import models as m
 from examgen.models import SessionLocal
-from sqlalchemy import inspect, text
+
 from examgen.services.exam_service import (
     ExamConfig,
     SelectorTypeEnum,
@@ -260,32 +260,12 @@ class ExamConfigDialog(QDialog):
     # ---------------- helpers -----------------
     def _load_subjects(self) -> None:
         """Populate subject combo from the database."""
-        names: List[str] = []
-
         with SessionLocal() as s:
-            insp = inspect(s.bind)
-            tables = {
-                tbl: {c["name"] for c in insp.get_columns(tbl)}
-                for tbl in insp.get_table_names()
-            }
+            subjects = s.query(m.Subject).order_by(m.Subject.name).all()
 
-            candidates = [
-                ("question", "materia"),
-                ("question", "subject"),
-                ("exam", "subject"),
-                ("exam", "materia"),
-                ("subject", "name"),
-            ]
-
-            for tbl, col in candidates:
-                if tbl in tables and col in tables[tbl]:
-                    sql = text(f'SELECT DISTINCT "{col}" FROM "{tbl}" ORDER BY "{col}"')
-                    rows = s.execute(sql).fetchall()
-                    names = [r[0] for r in rows if r[0]]
-                    if names:
-                        break
-
-        self.cb_subject.addItems(names)
+        self.cb_subject.clear()
+        for subj in subjects:
+            self.cb_subject.addItem(subj.name, subj.id)
 
         if self.cb_subject.isEditable():
             # ensure editable combo before attaching a completer
@@ -328,6 +308,7 @@ class ExamConfigDialog(QDialog):
         self.config = ExamConfig(
             exam_id=0,
             subject=self.cb_subject.currentText().strip(),
+            subject_id=int(self.cb_subject.currentData() or 0),
             selector_type=selector,
             num_questions=self.spin_questions.value(),
             error_threshold=None,

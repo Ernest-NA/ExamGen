@@ -23,13 +23,16 @@ from examgen.models import (
 class ExamConfig:
     exam_id: int
     subject: str
+    subject_id: int
     selector_type: SelectorTypeEnum
     num_questions: int | None
     error_threshold: int | None
     time_limit: int
 
 
-def _select_random(session: Session, exam_id: int, limit: int) -> List[Question]:
+def _select_random(
+    session: Session, exam_id: int, limit: int, subject_id: int | None = None
+) -> List[Question]:
     attempts_sub = (
         select(
             AttemptQuestion.question_id,
@@ -46,11 +49,20 @@ def _select_random(session: Session, exam_id: int, limit: int) -> List[Question]
         .order_by(func.coalesce(attempts_sub.c.attempts_count, 0).asc(), func.random())
         .limit(limit)
     )
-    return list(session.scalars(stmt))
+    questions = list(session.scalars(stmt))
+    if not questions and subject_id is not None:
+        questions = (
+            session.query(Question)
+            .filter(Question.subject_id == subject_id)
+            .order_by(func.random())
+            .limit(limit)
+            .all()
+        )
+    return questions
 
 
 def _select_by_errors(
-    session: Session, exam_id: int, limit: int
+    session: Session, exam_id: int, limit: int, subject_id: int | None = None
 ) -> List[Question]:
     error_sub = (
         select(
@@ -87,7 +99,7 @@ def _select_by_errors(
     )
     results = session.execute(stmt).all()
     if not results or all(row.errors == 0 for row in results):
-        return _select_random(session, exam_id, limit)
+        return _select_random(session, exam_id, limit, subject_id)
     return [row.Question for row in results]
 
 
@@ -105,7 +117,7 @@ def create_attempt(config: ExamConfig) -> Attempt:
             )
             if not exam_id:
                 raise ValueError(
-                    f"No questions found for subject '{config.subject}'"
+                    f'No hay preguntas para la materia "{config.subject}"'
                 )
             config.exam_id = exam_id
 
@@ -121,10 +133,19 @@ def create_attempt(config: ExamConfig) -> Attempt:
         session.add(attempt)
 
         if config.selector_type is SelectorTypeEnum.ALEATORIO:
-            questions = _select_random(session, config.exam_id, config.num_questions or 0)
+            questions = _select_random(
+                session, config.exam_id, config.num_questions or 0, config.subject_id
+            )
         else:
             threshold = config.error_threshold or 0
-            questions = _select_by_errors(session, config.exam_id, threshold)
+            questions = _select_by_errors(
+                session, config.exam_id, threshold, config.subject_id
+            )
+
+        if not questions:
+            raise ValueError(
+                f'No hay preguntas para la materia "{config.subject}"'
+            )
 
         for q in questions:
             attempt.questions.append(AttemptQuestion(question=q))
@@ -169,6 +190,7 @@ if __name__ == "__main__":
     cfg = ExamConfig(
         exam_id=1,
         subject="Demo",
+        subject_id=1,
         selector_type=SelectorTypeEnum.ALEATORIO,
         num_questions=3,
         error_threshold=None,
