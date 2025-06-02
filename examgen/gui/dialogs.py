@@ -276,7 +276,7 @@ class ExamConfigDialog(QDialog):
         else:
             self.cb_subject.setCompleter(None)
 
-        no_subjects = len(names) == 0
+        no_subjects = len(subjects) == 0
         self.lbl_no_subjects.setVisible(no_subjects)
         self._update_ok_state()
 
