@@ -121,6 +121,12 @@ class ExamDialog(QDialog):
 
         self._load_question()
 
+        if parent:
+            self.resize(parent.size())
+            self.move(parent.pos())
+        else:
+            self.resize(1024, 768)
+
     # ------------------------ helpers ---------------------
     @staticmethod
     def _fmt(secs: int) -> str:
