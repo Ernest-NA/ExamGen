@@ -265,9 +265,19 @@ class ExamDialog(QDialog):
         sel_set = set(aq.selected_option or "")
         for w in self.opts:
             if w.is_correct:
-                w.setStyleSheet("color: lightgreen;")
+                w.setStyleSheet(
+                    "QCheckBox,QRadioButton { color: lightgreen; }"
+                    "QCheckBox::indicator:disabled,"
+                    "QRadioButton::indicator:disabled {"
+                    "  background: lightgreen; border: 1px solid lightgreen; }"
+                )
             elif w.letter in sel_set:
-                w.setStyleSheet("color: salmon;")
+                w.setStyleSheet(
+                    "QCheckBox,QRadioButton { color: salmon; }"
+                    "QCheckBox::indicator:disabled,"
+                    "QRadioButton::indicator:disabled {"
+                    "  background: salmon; border: 1px solid salmon; }"
+                )
             else:
                 w.setStyleSheet("")
 
