@@ -379,6 +379,7 @@ class ExamDialog(QDialog):
 
     def on_toggle_clicked(self) -> None:
         if not self.expl_shown:
+            self._save_selection()
             self._evaluate_selection(self.current_aq)
             self._apply_colors(self.current_aq)
             self._freeze_options()
