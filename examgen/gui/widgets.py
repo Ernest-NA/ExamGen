@@ -2,15 +2,17 @@ from __future__ import annotations
 from typing import List
 from datetime import datetime
 
-from PySide6.QtCore import Qt, QTimer
+from PySide6.QtCore import Qt, QTimer, QPropertyAnimation
 from PySide6.QtGui import QKeySequence, QShortcut
 from PySide6.QtWidgets import (
     QButtonGroup,
     QDialog,
     QLabel,
+    QFrame,
     QMessageBox,
     QPushButton,
     QRadioButton,
+    QScrollArea,
     QTableWidget,
     QTableWidgetItem,
     QVBoxLayout,
@@ -67,6 +69,9 @@ class OptionTable(QTableWidget):
         return opts, correct
 
 
+MAX_RATIO = 0.45
+
+
 class ExamDialog(QDialog):
     """Modal dialog showing an ongoing exam attempt with pause and resume."""
 
@@ -77,17 +82,26 @@ class ExamDialog(QDialog):
         self.remaining_seconds = attempt.time_limit * 60
         self.index = 0
 
-        self.lbl_timer = QLabel(alignment=Qt.AlignLeft)
-        self.lbl_progress = QLabel(alignment=Qt.AlignRight)
+        self.lbl_subject = QLabel(f"Materia: {attempt.subject}")
+        self.lbl_timer = QLabel(alignment=Qt.AlignRight)
+        self.lbl_progress = QLabel(alignment=Qt.AlignCenter)
         self.btn_pause = QPushButton("Pausar", clicked=self._toggle_pause)
+        self.btn_toggle = QPushButton(
+            "Revisar Explicación \u25BC", clicked=self.toggle_explanation
+        )
 
         header = QHBoxLayout()
-        header.addWidget(self.btn_pause)
-        header.addWidget(self.lbl_timer)
+        header.addWidget(self.lbl_subject)
         header.addStretch(1)
         header.addWidget(self.lbl_progress)
+        header.addWidget(self.lbl_timer)
 
-        self.lbl_prompt = QLabel(wordWrap=True)
+        btn_bar = QHBoxLayout()
+        btn_bar.addWidget(self.btn_pause)
+        btn_bar.addStretch(1)
+        btn_bar.addWidget(self.btn_toggle)
+
+        self.lbl_prompt = QLabel(wordWrap=True, alignment=Qt.AlignJustify)
         self.group = QButtonGroup(self)
         self.opts: List[QRadioButton] = []
         for _ in range(4):
@@ -95,9 +109,22 @@ class ExamDialog(QDialog):
             self.group.addButton(rb)
             self.opts.append(rb)
 
-        opts_box = QVBoxLayout()
+        opts_container = QWidget()
+        opts_box = QVBoxLayout(opts_container)
+        opts_box.setContentsMargins(0, 0, 0, 0)
         for rb in self.opts:
             opts_box.addWidget(rb)
+
+        line = QFrame()
+        line.setFrameShape(QFrame.HLine)
+        line.setFrameShadow(QFrame.Sunken)
+
+        self.lbl_expl = QLabel(wordWrap=True, alignment=Qt.AlignJustify)
+        self.lbl_expl.setContentsMargins(6, 6, 6, 6)
+        self.scroll_expl = QScrollArea(widgetResizable=True)
+        self.scroll_expl.setWidget(self.lbl_expl)
+        self.scroll_expl.setMaximumHeight(0)
+        self.scroll_expl.setVisible(False)
 
         nav = QHBoxLayout()
         self.btn_prev = QPushButton("\u2190 Anterior", clicked=self._prev)
@@ -108,8 +135,11 @@ class ExamDialog(QDialog):
 
         root = QVBoxLayout(self)
         root.addLayout(header)
+        root.addLayout(btn_bar)
         root.addWidget(self.lbl_prompt)
-        root.addLayout(opts_box)
+        root.addWidget(opts_container)
+        root.addWidget(line)
+        root.addWidget(self.scroll_expl)
         root.addLayout(nav)
 
         QShortcut(QKeySequence("Ctrl+P"), self, activated=self._toggle_pause)
@@ -145,6 +175,7 @@ class ExamDialog(QDialog):
         else:
             self.btn_prev.setEnabled(False)
             self.btn_next.setEnabled(False)
+        self.btn_toggle.setEnabled(enabled)
 
     def _tick(self) -> None:
         self.remaining_seconds -= 1
@@ -164,6 +195,11 @@ class ExamDialog(QDialog):
 
         aq = self.attempt.questions[self.index]
         self.lbl_prompt.setText(aq.question.prompt)
+        expl = aq.question.explanation or "Sin explicación disponible."
+        self.lbl_expl.setText(expl)
+        self.scroll_expl.setMaximumHeight(0)
+        self.scroll_expl.setVisible(False)
+        self.btn_toggle.setText("Revisar Explicación \u25BC")
 
         for rb, opt in zip(self.opts, aq.question.options):
             rb.show()
@@ -195,6 +231,26 @@ class ExamDialog(QDialog):
     def _finish_shortcut(self) -> None:
         if self.index == len(self.attempt.questions) - 1:
             self._next()
+
+    def toggle_explanation(self) -> None:
+        expanded = self.scroll_expl.maximumHeight() > 0
+        target = 0 if expanded else int(self.height() * MAX_RATIO)
+        if target > 0:
+            self.scroll_expl.setVisible(True)
+
+        anim = QPropertyAnimation(self.scroll_expl, b"maximumHeight", self)
+        anim.setDuration(200)
+        anim.setStartValue(self.scroll_expl.maximumHeight())
+        anim.setEndValue(target)
+
+        def on_finished() -> None:
+            self.scroll_expl.setVisible(target > 0)
+
+        anim.finished.connect(on_finished)
+        anim.start(QPropertyAnimation.DeleteWhenStopped)
+        self.btn_toggle.setText(
+            "Ocultar Explicación \u25B2" if not expanded else "Revisar Explicación \u25BC"
+        )
 
     # ------------------------ nav -------------------------
     def _prev(self) -> None:
