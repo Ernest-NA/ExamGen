@@ -277,6 +277,8 @@ class ExamDialog(QDialog):
                 w.setText(f"<font color='{color}'>{w.raw_text}</font>")
             else:
                 w.setText(w.raw_text)
+            w.setTextFormat(Qt.RichText)
+            w.adjustSize()
 
             w.setAttribute(Qt.WA_TransparentForMouseEvents, True)
             w.setFocusPolicy(Qt.NoFocus)
