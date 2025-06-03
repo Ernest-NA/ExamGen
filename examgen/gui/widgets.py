@@ -17,6 +17,7 @@ from PySide6.QtWidgets import (
     QTableWidgetItem,
     QVBoxLayout,
     QHBoxLayout,
+    QGridLayout,
     QWidget,
     QSizePolicy,
     QAbstractButton,
@@ -99,16 +100,18 @@ class ExamDialog(QDialog):
         self.btn_toggle = QPushButton("Revisar Explicación \u25bc")
         self.btn_toggle.clicked.connect(self.on_toggle_clicked)
 
-        header = QHBoxLayout()
-        header.addWidget(self.lbl_subject)
-        header.addStretch(1)
-        header.addWidget(self.lbl_progress)
-        header.addWidget(self.lbl_timer)
+        header_grid = QGridLayout()
+        header_grid.setColumnStretch(1, 1)
+        header_grid.setHorizontalSpacing(12)
+        header_grid.setVerticalSpacing(4)
+        header_grid.setContentsMargins(0, 0, 0, 0)
 
-        btn_bar = QHBoxLayout()
-        btn_bar.addWidget(self.btn_pause)
-        btn_bar.addStretch(1)
-        btn_bar.addWidget(self.btn_toggle)
+        header_grid.addWidget(self.lbl_subject, 0, 0, Qt.AlignLeft)
+        header_grid.addWidget(self.lbl_progress, 0, 1, Qt.AlignCenter)
+        header_grid.addWidget(self.lbl_timer, 0, 2, Qt.AlignRight)
+
+        header_grid.addWidget(self.btn_pause, 1, 0, Qt.AlignLeft)
+        header_grid.addWidget(self.btn_toggle, 1, 2, Qt.AlignRight)
 
         self.lbl_prompt = QLabel(alignment=Qt.AlignJustify)
         self.lbl_prompt.setWordWrap(True)
@@ -130,8 +133,7 @@ class ExamDialog(QDialog):
         nav.addWidget(self.btn_next)
 
         root = QVBoxLayout(self)
-        root.addLayout(header)
-        root.addLayout(btn_bar)
+        root.addLayout(header_grid)
         root.addWidget(self.lbl_prompt)
         root.addWidget(opts_container)
         root.addLayout(nav)
