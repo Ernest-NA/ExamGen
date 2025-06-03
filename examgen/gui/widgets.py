@@ -18,6 +18,7 @@ from PySide6.QtWidgets import (
     QVBoxLayout,
     QHBoxLayout,
     QWidget,
+    QSizePolicy,
 )
 
 from examgen.models import Attempt
@@ -69,7 +70,7 @@ class OptionTable(QTableWidget):
         return opts, correct
 
 
-MAX_RATIO = 0.45
+MAX_RATIO = 0.4
 
 
 class ExamDialog(QDialog):
@@ -81,13 +82,14 @@ class ExamDialog(QDialog):
         self.attempt = attempt
         self.remaining_seconds = attempt.time_limit * 60
         self.index = 0
+        self._has_expl = False
 
         self.lbl_subject = QLabel(f"Materia: {attempt.subject}")
         self.lbl_timer = QLabel(alignment=Qt.AlignRight)
         self.lbl_progress = QLabel(alignment=Qt.AlignCenter)
         self.btn_pause = QPushButton("Pausar", clicked=self._toggle_pause)
         self.btn_toggle = QPushButton(
-            "Revisar Explicación \u25BC", clicked=self.toggle_explanation
+            "Revisar Explicación \u25bc", clicked=self.toggle_explanation
         )
 
         header = QHBoxLayout()
@@ -102,6 +104,10 @@ class ExamDialog(QDialog):
         btn_bar.addWidget(self.btn_toggle)
 
         self.lbl_prompt = QLabel(wordWrap=True, alignment=Qt.AlignJustify)
+        self.lbl_prompt.setContentsMargins(0, 12, 0, 24)
+        self.lbl_prompt.setSizePolicy(
+            QSizePolicy.Preferred, QSizePolicy.MinimumExpanding
+        )
         self.group = QButtonGroup(self)
         self.opts: List[QRadioButton] = []
         for _ in range(4):
@@ -120,9 +126,22 @@ class ExamDialog(QDialog):
         line.setFrameShadow(QFrame.Sunken)
 
         self.lbl_expl = QLabel(wordWrap=True, alignment=Qt.AlignJustify)
-        self.lbl_expl.setContentsMargins(6, 6, 6, 6)
         self.scroll_expl = QScrollArea(widgetResizable=True)
+        self.frm_expl = QFrame(self)
+        self.frm_expl.setFrameShape(QFrame.NoFrame)
+        self.frm_expl.setStyleSheet(
+            "QFrame {"
+            " background-color: rgba(255,255,255,0.04);"
+            " border-top: 1px solid rgba(255,255,255,0.1);"
+            "}"
+        )
         self.scroll_expl.setWidget(self.lbl_expl)
+        self.scroll_expl.setFrameStyle(QFrame.NoFrame)
+        self.scroll_expl.setStyleSheet("QScrollArea { border: none; }")
+        self.lbl_expl.setContentsMargins(12, 8, 12, 8)
+        expl_layout = QVBoxLayout(self.frm_expl)
+        expl_layout.setContentsMargins(0, 0, 0, 0)
+        expl_layout.addWidget(self.scroll_expl)
         self.scroll_expl.setMaximumHeight(0)
         self.scroll_expl.setVisible(False)
 
@@ -139,7 +158,7 @@ class ExamDialog(QDialog):
         root.addWidget(self.lbl_prompt)
         root.addWidget(opts_container)
         root.addWidget(line)
-        root.addWidget(self.scroll_expl)
+        root.addWidget(self.frm_expl)
         root.addLayout(nav)
 
         QShortcut(QKeySequence("Ctrl+P"), self, activated=self._toggle_pause)
@@ -175,7 +194,7 @@ class ExamDialog(QDialog):
         else:
             self.btn_prev.setEnabled(False)
             self.btn_next.setEnabled(False)
-        self.btn_toggle.setEnabled(enabled)
+        self.btn_toggle.setEnabled(enabled and getattr(self, "_has_expl", False))
 
     def _tick(self) -> None:
         self.remaining_seconds -= 1
@@ -197,9 +216,15 @@ class ExamDialog(QDialog):
         self.lbl_prompt.setText(aq.question.prompt)
         expl = aq.question.explanation or "Sin explicación disponible."
         self.lbl_expl.setText(expl)
+        has_expl = bool(aq.question.explanation and aq.question.explanation.strip())
+        self._has_expl = has_expl
+        self.btn_toggle.setEnabled(has_expl)
+        self.btn_toggle.setToolTip(
+            "" if has_expl else "Esta pregunta no tiene explicación guardada"
+        )
         self.scroll_expl.setMaximumHeight(0)
         self.scroll_expl.setVisible(False)
-        self.btn_toggle.setText("Revisar Explicación \u25BC")
+        self.btn_toggle.setText("Revisar Explicación \u25bc")
 
         for rb, opt in zip(self.opts, aq.question.options):
             rb.show()
@@ -249,7 +274,9 @@ class ExamDialog(QDialog):
         anim.finished.connect(on_finished)
         anim.start(QPropertyAnimation.DeleteWhenStopped)
         self.btn_toggle.setText(
-            "Ocultar Explicación \u25B2" if not expanded else "Revisar Explicación \u25BC"
+            "Ocultar Explicación \u25b2"
+            if not expanded
+            else "Revisar Explicación \u25bc"
         )
 
     # ------------------------ nav -------------------------
