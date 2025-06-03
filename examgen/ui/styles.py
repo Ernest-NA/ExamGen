@@ -30,7 +30,16 @@ QAbstractButton[state="wrong"]::indicator:checked:disabled {
 }
 """
 
+OPTION_EXPL_STYLE = """
+QLabel#OptExplanation {
+    color: #b5b5b5;
+    font-style: italic;
+    margin-left: 28px;
+    margin-bottom: 8px;
+}
+"""
+
 
 def apply_app_styles(app: QApplication) -> None:
     """Apply global styles to *app*."""
-    app.setStyleSheet(BUTTON_STYLE)
+    app.setStyleSheet(BUTTON_STYLE + OPTION_EXPL_STYLE)

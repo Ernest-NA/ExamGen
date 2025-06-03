@@ -103,6 +103,11 @@ class Question(Base):
 
     __mapper_args__ = {"polymorphic_on": type, "polymorphic_identity": "BASE"}
 
+    @property
+    def options_dict(self) -> dict[str, "AnswerOption"]:
+        """Return a mapping letter→AnswerOption for quick access."""
+        return {letter: opt for letter, opt in zip("ABCDE", self.options)}
+
 
 class MCQQuestion(Question):
     __mapper_args__ = {"polymorphic_identity": "MCQ"}
