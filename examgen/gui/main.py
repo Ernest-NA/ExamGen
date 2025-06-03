@@ -50,6 +50,7 @@ from PySide6.QtWidgets import (
 from examgen import models as m
 from examgen.gui.dialogs import QuestionDialog
 from examgen.gui.style import Style
+from examgen.ui.styles import apply_app_styles, BUTTON_STYLE
 
 
 class MainWindow(QMainWindow):
@@ -152,7 +153,9 @@ class MainWindow(QMainWindow):
     #  Temas                                                                #
     # --------------------------------------------------------------------- #
     def _apply_theme(self) -> None:
-        QApplication.instance().setStyleSheet(Style.sheet(self.current_theme))
+        app = QApplication.instance()
+        if app is not None:
+            app.setStyleSheet(Style.sheet(self.current_theme) + BUTTON_STYLE)
 
     def _switch_theme(self, target: str) -> None:
         if target != self.current_theme:
@@ -179,6 +182,7 @@ def main() -> None:
     m.init_db(DB_PATH)  # crea BD si no existe
 
     app = QApplication(sys.argv)
+    apply_app_styles(app)
     font = QFont()
     font.setPointSize(11)
     app.setFont(font)
