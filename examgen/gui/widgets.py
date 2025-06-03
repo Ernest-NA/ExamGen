@@ -93,6 +93,7 @@ class ExamDialog(QDialog):
         self.index = 0
         self._has_expl = False
         self.expl_shown = False
+        self.num_correct = 0
         self.current_aq: AttemptQuestion | None = None
 
         self.lbl_subject = QLabel(f"Materia: {attempt.subject}")
@@ -191,16 +192,36 @@ class ExamDialog(QDialog):
     def _update_timer(self) -> None:
         self.lbl_timer.setText(self._fmt(self.remaining_seconds))
 
+    def _update_check_state(self, changed_box: QCheckBox) -> None:
+        sel_boxes = [
+            b for b in self.opts if isinstance(b, QCheckBox) and b.isChecked()
+        ]
+        if len(sel_boxes) > self.num_correct:
+            changed_box.setChecked(False)
+            QMessageBox.information(
+                self,
+                "Máximo alcanzado",
+                f"Solo puedes elegir {self.num_correct} opciones en esta pregunta.",
+            )
+            sel_boxes.pop()
+        ready = len(sel_boxes) == self.num_correct
+        self.btn_toggle.setEnabled(ready)
+        self.btn_next.setEnabled(ready)
+
     def _set_widgets_enabled(self, enabled: bool) -> None:
         for rb in self.opts:
             rb.setEnabled(enabled)
         if enabled:
             self.btn_prev.setEnabled(self.index > 0)
-            self.btn_next.setEnabled(True)
+            if isinstance(self.opts[0], QRadioButton):
+                self.btn_next.setEnabled(True)
+                self.btn_toggle.setEnabled(self._has_expl)
+            else:
+                self._update_check_state(self.opts[0])
         else:
             self.btn_prev.setEnabled(False)
             self.btn_next.setEnabled(False)
-        self.btn_toggle.setEnabled(enabled and getattr(self, "_has_expl", False))
+            self.btn_toggle.setEnabled(False)
 
     def _tick(self) -> None:
         self.remaining_seconds -= 1
@@ -272,6 +293,8 @@ class ExamDialog(QDialog):
         self.exp_container.setMaximumHeight(0)
         self.exp_container.setVisible(False)
         self.btn_toggle.setText("Revisar Explicación \u25bc")
+        self.btn_toggle.setEnabled(False)
+        self.btn_next.setEnabled(False)
 
         opts = [
             (l, opt.text, opt.is_correct)
@@ -279,8 +302,8 @@ class ExamDialog(QDialog):
             if opt.text
         ]
         random.shuffle(opts)
-        num_correct = sum(1 for _, _, ok in opts if ok)
-        widget_cls = QRadioButton if num_correct == 1 else QCheckBox
+        self.num_correct = sum(1 for _, _, ok in opts if ok)
+        widget_cls = QRadioButton if self.num_correct == 1 else QCheckBox
         self._opts_data = opts
         clear_layout(self.vbox_opts)
         self.opts = []
@@ -298,12 +321,18 @@ class ExamDialog(QDialog):
                 w.setChecked(aq.selected_option == letter)
             else:
                 w.setChecked(letter in (aq.selected_option or ""))
-
+                w.stateChanged.connect(lambda _, b=w: self._update_check_state(b))
         self.btn_prev.setEnabled(self.index > 0)
         if self.index == total - 1:
             self.btn_next.setText("Finalizar")
         else:
             self.btn_next.setText("Siguiente \u2192")
+
+        if widget_cls is QRadioButton:
+            self.btn_toggle.setEnabled(has_expl)
+            self.btn_next.setEnabled(True)
+        else:
+            self._update_check_state(self.opts[0])
 
     def _toggle_pause(self) -> None:
         if self.timer.isActive():
