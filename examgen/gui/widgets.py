@@ -1,6 +1,7 @@
 from __future__ import annotations
 from typing import List
 from datetime import datetime
+import random
 
 from PySide6.QtCore import Qt, QTimer, QPropertyAnimation
 from PySide6.QtGui import QKeySequence, QShortcut
@@ -12,6 +13,7 @@ from PySide6.QtWidgets import (
     QMessageBox,
     QPushButton,
     QRadioButton,
+    QCheckBox,
     QScrollArea,
     QTableWidget,
     QTableWidgetItem,
@@ -30,6 +32,13 @@ from examgen.services.exam_service import (
 from examgen.gui.dialogs import ResultsDialog
 
 from examgen import models as m
+
+
+def clear_layout(layout: QVBoxLayout | QHBoxLayout) -> None:
+    while layout.count():
+        item = layout.takeAt(0)
+        if widget := item.widget():
+            widget.deleteLater()
 
 
 class OptionTable(QTableWidget):
@@ -112,16 +121,10 @@ class ExamDialog(QDialog):
         )
         self.group = QButtonGroup(self)
         self.opts: List[QRadioButton] = []
-        for _ in range(4):
-            rb = QRadioButton()
-            self.group.addButton(rb)
-            self.opts.append(rb)
 
         opts_container = QWidget()
-        opts_box = QVBoxLayout(opts_container)
-        opts_box.setContentsMargins(0, 0, 0, 0)
-        for rb in self.opts:
-            opts_box.addWidget(rb)
+        self.vbox_opts = QVBoxLayout(opts_container)
+        self.vbox_opts.setContentsMargins(0, 0, 0, 0)
 
         self.lbl_expl = QLabel(wordWrap=True, alignment=Qt.AlignJustify)
         self.lbl_expl.setContentsMargins(12, 8, 12, 8)
@@ -206,9 +209,17 @@ class ExamDialog(QDialog):
             self.finish_exam(auto=True)
 
     def _save_selection(self) -> None:
-        selected = self.group.checkedButton()
-        text = selected.text() if selected else None
-        self.attempt.questions[self.index].selected_option = text
+        aq = self.attempt.questions[self.index]
+        if not self.opts:
+            return
+        if isinstance(self.opts[0], QRadioButton):
+            sel = next((w.letter for w in self.opts if w.isChecked()), "")
+        else:
+            sel = "".join(sorted(w.letter for w in self.opts if w.isChecked()))
+        aq.selected_option = sel
+        with SessionLocal() as s:
+            s.merge(aq)
+            s.commit()
 
     # ----- correction helpers -----
     def _freeze_options(self) -> None:
@@ -216,37 +227,30 @@ class ExamDialog(QDialog):
             rb.setEnabled(False)
 
     def _evaluate_selection(self, aq: AttemptQuestion) -> None:
-        sel = aq.selected_option
-        correct = next(
-            (opt.text for opt in aq.question.options if opt.is_correct), None
-        )
-        aq.is_correct = sel == correct
+        correct_set = {
+            l
+            for l, opt in zip("ABCDE", aq.question.options)
+            if opt.is_correct
+        }
+        if isinstance(self.opts[0], QRadioButton):
+            aq.is_correct = aq.selected_option in correct_set
+        else:
+            aq.is_correct = set(aq.selected_option or "") == correct_set
         with SessionLocal() as s:
             s.merge(aq)
             s.commit()
 
     def _apply_colors(self, aq: AttemptQuestion) -> None:
-        correct = next(
-            (
-                letter
-                for letter, opt in zip("ABCD", aq.question.options)
-                if opt.is_correct
-            ),
-            "",
-        )
-        selected = next(
-            (
-                letter
-                for letter, opt in zip("ABCD", aq.question.options)
-                if opt.text == aq.selected_option
-            ),
-            "",
-        )
-        for rb, letter in zip(self.opts, "ABCD"):
-            if letter == correct:
-                rb.setStyleSheet("color: lightgreen;")
-            elif letter == selected:
-                rb.setStyleSheet("color: salmon;")
+        correct_set = {
+            l
+            for l, opt in zip("ABCDE", aq.question.options)
+            if opt.is_correct
+        }
+        for w in self.opts:
+            if w.is_correct:
+                w.setStyleSheet("color: lightgreen;")
+            elif w.letter in (aq.selected_option or ""):
+                w.setStyleSheet("color: salmon;")
 
     def _load_question(self) -> None:
         self._update_timer()
@@ -269,16 +273,31 @@ class ExamDialog(QDialog):
         self.exp_container.setVisible(False)
         self.btn_toggle.setText("Revisar Explicación \u25bc")
 
-        for rb, opt in zip(self.opts, aq.question.options):
-            rb.show()
-            rb.setText(opt.text)
-            rb.setChecked(aq.selected_option == opt.text)
-            rb.setEnabled(True)
-            rb.setStyleSheet("")
-        for rb in self.opts[len(aq.question.options) :]:
-            rb.hide()
-            rb.setChecked(False)
-            rb.setText("")
+        opts = [
+            (l, opt.text, opt.is_correct)
+            for l, opt in zip("ABCDE", aq.question.options)
+            if opt.text
+        ]
+        random.shuffle(opts)
+        num_correct = sum(1 for _, _, ok in opts if ok)
+        widget_cls = QRadioButton if num_correct == 1 else QCheckBox
+        self._opts_data = opts
+        clear_layout(self.vbox_opts)
+        self.opts = []
+        if widget_cls is QRadioButton:
+            self.group = QButtonGroup(self)
+        for letter, text, is_ok in opts:
+            w = widget_cls(text, self)
+            w.letter = letter
+            w.is_correct = is_ok
+            if isinstance(w, QRadioButton):
+                self.group.addButton(w)
+            self.opts.append(w)
+            self.vbox_opts.addWidget(w)
+            if isinstance(w, QRadioButton):
+                w.setChecked(aq.selected_option == letter)
+            else:
+                w.setChecked(letter in (aq.selected_option or ""))
 
         self.btn_prev.setEnabled(self.index > 0)
         if self.index == total - 1:

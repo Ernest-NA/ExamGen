@@ -20,6 +20,7 @@ from sqlalchemy import (
     JSON,
     String,
     Text,
+    text,
     create_engine,
     Enum as SQLAEnum,
     inspect,
@@ -92,6 +93,9 @@ class Question(Base):
     subject_id:   Mapped[int] = mapped_column(ForeignKey("subject.id"), nullable=False)
     subject:   Mapped[Subject] = relationship(back_populates="questions",  foreign_keys=[subject_id])
     reference: Mapped[str | None] = mapped_column(String(200))
+
+    option_e: Mapped[str | None] = mapped_column(Text())
+    is_e_correct: Mapped[bool] = mapped_column(Boolean, default=False)
 
     options: Mapped[List["AnswerOption"]] = relationship(
         back_populates="question", cascade="all, delete-orphan"
@@ -186,6 +190,19 @@ def _migrate_attempt_subject_column(engine: Engine) -> None:
             con.exec_driver_sql("ALTER TABLE attempt ADD COLUMN subject TEXT")
 
 
+def _add_option_e(engine: Engine) -> None:
+    """Add option_e and is_e_correct columns if missing."""
+    insp = inspect(engine)
+    cols = {c["name"] for c in insp.get_columns("question")}
+    alter = []
+    if "option_e" not in cols:
+        alter.append("ADD COLUMN option_e TEXT")
+    if "is_e_correct" not in cols:
+        alter.append("ADD COLUMN is_e_correct BOOLEAN DEFAULT 0")
+    for stmt in alter:
+        engine.execute(text(f"ALTER TABLE question {stmt}"))
+
+
 def _create_examiner_tables(engine: Engine) -> None:
     insp = inspect(engine)
     tables = []
@@ -197,6 +214,7 @@ def _create_examiner_tables(engine: Engine) -> None:
         Base.metadata.create_all(bind=engine, tables=tables)
 
     _migrate_attempt_subject_column(engine)
+    _add_option_e(engine)
 
 # -----------------------------------------------------------------------------
 # Utilidades de BD
