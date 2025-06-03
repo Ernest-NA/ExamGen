@@ -21,7 +21,7 @@ from PySide6.QtWidgets import (
     QSizePolicy,
 )
 
-from examgen.models import Attempt
+from examgen.models import Attempt, AttemptQuestion, SessionLocal
 from examgen.services.exam_service import (
     ExamConfig,
     create_attempt,
@@ -70,7 +70,7 @@ class OptionTable(QTableWidget):
         return opts, correct
 
 
-MAX_RATIO = 0.4
+MAX_RATIO = 0.40
 
 
 class ExamDialog(QDialog):
@@ -83,13 +83,15 @@ class ExamDialog(QDialog):
         self.remaining_seconds = attempt.time_limit * 60
         self.index = 0
         self._has_expl = False
+        self.expl_shown = False
+        self.current_aq: AttemptQuestion | None = None
 
         self.lbl_subject = QLabel(f"Materia: {attempt.subject}")
         self.lbl_timer = QLabel(alignment=Qt.AlignRight)
         self.lbl_progress = QLabel(alignment=Qt.AlignCenter)
         self.btn_pause = QPushButton("Pausar", clicked=self._toggle_pause)
         self.btn_toggle = QPushButton(
-            "Revisar Explicación \u25bc", clicked=self.toggle_explanation
+            "Revisar Explicación \u25bc", clicked=self.on_toggle_clicked
         )
 
         header = QHBoxLayout()
@@ -103,7 +105,8 @@ class ExamDialog(QDialog):
         btn_bar.addStretch(1)
         btn_bar.addWidget(self.btn_toggle)
 
-        self.lbl_prompt = QLabel(wordWrap=True, alignment=Qt.AlignJustify)
+        self.lbl_prompt = QLabel(alignment=Qt.AlignJustify)
+        self.lbl_prompt.setWordWrap(True)
         self.lbl_prompt.setContentsMargins(0, 12, 0, 24)
         self.lbl_prompt.setSizePolicy(
             QSizePolicy.Preferred, QSizePolicy.MinimumExpanding
@@ -128,16 +131,17 @@ class ExamDialog(QDialog):
         self.lbl_expl = QLabel(wordWrap=True, alignment=Qt.AlignJustify)
         self.scroll_expl = QScrollArea(widgetResizable=True)
         self.frm_expl = QFrame(self)
+        self.frm_expl.setObjectName("ExplanationPanel")
         self.frm_expl.setFrameShape(QFrame.NoFrame)
         self.frm_expl.setStyleSheet(
-            "QFrame {"
-            " background-color: rgba(255,255,255,0.04);"
-            " border-top: 1px solid rgba(255,255,255,0.1);"
+            "QFrame#ExplanationPanel {"
+            " background-color: rgba(255,255,255,0.03);"
+            " border-top: 1px solid rgba(255,255,255,0.12);"
             "}"
+            "QScrollArea { border: none; }"
         )
         self.scroll_expl.setWidget(self.lbl_expl)
         self.scroll_expl.setFrameStyle(QFrame.NoFrame)
-        self.scroll_expl.setStyleSheet("QScrollArea { border: none; }")
         self.lbl_expl.setContentsMargins(12, 8, 12, 8)
         expl_layout = QVBoxLayout(self.frm_expl)
         expl_layout.setContentsMargins(0, 0, 0, 0)
@@ -175,6 +179,7 @@ class ExamDialog(QDialog):
             self.move(parent.pos())
         else:
             self.resize(1024, 768)
+        self.lbl_prompt.setMaximumWidth(int(self.width() * 0.70))
 
     # ------------------------ helpers ---------------------
     @staticmethod
@@ -207,12 +212,44 @@ class ExamDialog(QDialog):
         text = selected.text() if selected else None
         self.attempt.questions[self.index].selected_option = text
 
+    # ----- correction helpers -----
+    def _freeze_options(self) -> None:
+        for rb in self.opts:
+            rb.setEnabled(False)
+
+    def _evaluate_selection(self, aq: AttemptQuestion) -> None:
+        sel = aq.selected_option
+        correct = next(
+            (opt.text for opt in aq.question.options if opt.is_correct), None
+        )
+        aq.is_correct = sel == correct
+        with SessionLocal() as s:
+            s.merge(aq)
+            s.commit()
+
+    def _apply_colors(self, aq: AttemptQuestion) -> None:
+        correct = next(
+            (letter for letter, opt in zip("ABCD", aq.question.options) if opt.is_correct),
+            "",
+        )
+        selected = next(
+            (letter for letter, opt in zip("ABCD", aq.question.options) if opt.text == aq.selected_option),
+            "",
+        )
+        for rb, letter in zip(self.opts, "ABCD"):
+            if letter == correct:
+                rb.setStyleSheet("color: lightgreen;")
+            elif letter == selected:
+                rb.setStyleSheet("color: salmon;")
+
     def _load_question(self) -> None:
         self._update_timer()
         total = len(self.attempt.questions)
         self.lbl_progress.setText(f"Pregunta {self.index + 1} / {total}")
 
         aq = self.attempt.questions[self.index]
+        self.current_aq = aq
+        self.expl_shown = False
         self.lbl_prompt.setText(aq.question.prompt)
         expl = aq.question.explanation or "Sin explicación disponible."
         self.lbl_expl.setText(expl)
@@ -230,10 +267,16 @@ class ExamDialog(QDialog):
             rb.show()
             rb.setText(opt.text)
             rb.setChecked(aq.selected_option == opt.text)
+            rb.setEnabled(True)
+            rb.setStyleSheet("color: black;")
         for rb in self.opts[len(aq.question.options) :]:
             rb.hide()
             rb.setChecked(False)
             rb.setText("")
+
+        if aq.is_correct is not None:
+            self._freeze_options()
+            self._apply_colors(aq)
 
         self.btn_prev.setEnabled(self.index > 0)
         if self.index == total - 1:
@@ -257,9 +300,10 @@ class ExamDialog(QDialog):
         if self.index == len(self.attempt.questions) - 1:
             self._next()
 
-    def toggle_explanation(self) -> None:
+    def toggle_explanation(self, expand: bool | None = None) -> None:
         expanded = self.scroll_expl.maximumHeight() > 0
-        target = 0 if expanded else int(self.height() * MAX_RATIO)
+        expand = (not expanded) if expand is None else expand
+        target = int(self.height() * MAX_RATIO) if expand else 0
         if target > 0:
             self.scroll_expl.setVisible(True)
 
@@ -273,11 +317,19 @@ class ExamDialog(QDialog):
 
         anim.finished.connect(on_finished)
         anim.start(QPropertyAnimation.DeleteWhenStopped)
-        self.btn_toggle.setText(
-            "Ocultar Explicación \u25b2"
-            if not expanded
-            else "Revisar Explicación \u25bc"
-        )
+
+    def on_toggle_clicked(self) -> None:
+        if not self.expl_shown:
+            self._freeze_options()
+            self._evaluate_selection(self.current_aq)
+            self._apply_colors(self.current_aq)
+            self.expl_shown = True
+            self.btn_toggle.setText("Ocultar Explicación \u25b2")
+            self.toggle_explanation(expand=True)
+        else:
+            self.expl_shown = False
+            self.btn_toggle.setText("Revisar Explicación \u25bc")
+            self.toggle_explanation(expand=False)
 
     # ------------------------ nav -------------------------
     def _prev(self) -> None:
