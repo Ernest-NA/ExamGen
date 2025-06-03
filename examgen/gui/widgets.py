@@ -123,30 +123,30 @@ class ExamDialog(QDialog):
         for rb in self.opts:
             opts_box.addWidget(rb)
 
-        line = QFrame()
-        line.setFrameShape(QFrame.HLine)
-        line.setFrameShadow(QFrame.Sunken)
-
         self.lbl_expl = QLabel(wordWrap=True, alignment=Qt.AlignJustify)
+        self.lbl_expl.setContentsMargins(12, 8, 12, 8)
         self.scroll_expl = QScrollArea(widgetResizable=True)
-        self.frm_expl = QFrame(self)
-        self.frm_expl.setObjectName("ExplanationPanel")
-        self.frm_expl.setFrameShape(QFrame.NoFrame)
-        self.frm_expl.setStyleSheet(
+        self.scroll_expl.setWidget(self.lbl_expl)
+        self.scroll_expl.setFrameStyle(QFrame.NoFrame)
+
+        self.exp_container = QFrame(self)
+        self.exp_container.setObjectName("ExplanationPanel")
+        self.exp_container.setFrameShape(QFrame.NoFrame)
+        self.exp_container.setStyleSheet(
             "QFrame#ExplanationPanel {"
             " background-color: rgba(255,255,255,0.03);"
             " border-top: 1px solid rgba(255,255,255,0.12);"
             "}"
             "QScrollArea { border: none; }"
         )
-        self.scroll_expl.setWidget(self.lbl_expl)
-        self.scroll_expl.setFrameStyle(QFrame.NoFrame)
-        self.lbl_expl.setContentsMargins(12, 8, 12, 8)
-        expl_layout = QVBoxLayout(self.frm_expl)
-        expl_layout.setContentsMargins(0, 0, 0, 0)
-        expl_layout.addWidget(self.scroll_expl)
-        self.scroll_expl.setMaximumHeight(0)
-        self.scroll_expl.setVisible(False)
+        exp_layout = QVBoxLayout(self.exp_container)
+        exp_layout.setContentsMargins(0, 0, 0, 0)
+        exp_layout.addWidget(self.scroll_expl)
+        self.exp_container.setMaximumHeight(0)
+        self.exp_container.setVisible(False)
+        self.exp_container.setSizePolicy(
+            QSizePolicy.Preferred, QSizePolicy.Fixed
+        )
 
         nav = QHBoxLayout()
         self.btn_prev = QPushButton("\u2190 Anterior", clicked=self._prev)
@@ -160,8 +160,7 @@ class ExamDialog(QDialog):
         root.addLayout(btn_bar)
         root.addWidget(self.lbl_prompt)
         root.addWidget(opts_container)
-        root.addWidget(line)
-        root.addWidget(self.frm_expl)
+        root.addWidget(self.exp_container)
         root.addLayout(nav)
 
         QShortcut(QKeySequence("Ctrl+P"), self, activated=self._toggle_pause)
@@ -266,8 +265,8 @@ class ExamDialog(QDialog):
         self.btn_toggle.setToolTip(
             "" if has_expl else "Esta pregunta no tiene explicación guardada"
         )
-        self.scroll_expl.setMaximumHeight(0)
-        self.scroll_expl.setVisible(False)
+        self.exp_container.setMaximumHeight(0)
+        self.exp_container.setVisible(False)
         self.btn_toggle.setText("Revisar Explicación \u25bc")
 
         for rb, opt in zip(self.opts, aq.question.options):
@@ -303,20 +302,18 @@ class ExamDialog(QDialog):
         if self.index == len(self.attempt.questions) - 1:
             self._next()
 
-    def toggle_explanation(self, expand: bool | None = None) -> None:
-        expanded = self.scroll_expl.maximumHeight() > 0
-        expand = (not expanded) if expand is None else expand
-        target = int(self.height() * MAX_RATIO) if expand else 0
+    def _set_expl_visible(self, show: bool) -> None:
+        target = int(self.height() * MAX_RATIO) if show else 0
         if target > 0:
-            self.scroll_expl.setVisible(True)
+            self.exp_container.setVisible(True)
 
-        anim = QPropertyAnimation(self.scroll_expl, b"maximumHeight", self)
+        anim = QPropertyAnimation(self.exp_container, b"maximumHeight", self)
         anim.setDuration(200)
-        anim.setStartValue(self.scroll_expl.maximumHeight())
+        anim.setStartValue(self.exp_container.maximumHeight())
         anim.setEndValue(target)
 
         def on_finished() -> None:
-            self.scroll_expl.setVisible(target > 0)
+            self.exp_container.setVisible(target > 0)
 
         anim.finished.connect(on_finished)
         anim.start(QPropertyAnimation.DeleteWhenStopped)
@@ -326,11 +323,34 @@ class ExamDialog(QDialog):
             self._freeze_options()
             self._evaluate_selection(self.current_aq)
             self._apply_colors(self.current_aq)
-            self.toggle_explanation(expand=True)
+            # -------- placeholder ----------
+            expl = self.current_aq.question.explanation
+            if not expl:
+                expl = (
+                    "A. Una de las ventajas clave de SFDX es que facilita el uso de "
+                    "sistemas de control de versiones (VCS) como Git, donde puedes "
+                    "almacenar y gestionar el código, ya sea de manera local o en un "
+                    "repositorio remoto. Esto apoya el desarrollo colaborativo y el "
+                    "versionado adecuado.\n"
+                    "----------------------------------------------------------------------------\n"
+                    "D. SFDX permite instalar metadatos de aplicaciones desde un repositorio "
+                    "central. Esto se puede hacer mediante el uso de control de versiones y la "
+                    "gestión de paquetes o mediante un repositorio centralizado, lo cual "
+                    "facilita la instalación y gestión de metadatos en diferentes entornos.\n"
+                    "----------------------------------------------------------------------------\n"
+                    "E. La capacidad de crear scratch orgs es una de las funcionalidades más "
+                    "importantes de SFDX. Las scratch orgs son entornos temporales y "
+                    "configurables que los desarrolladores pueden utilizar para probar "
+                    "funcionalidades y desarrollar de manera aislada antes de integrarlas en "
+                    "la org principal.\n"
+                )  # TODO: quitar placeholder cuando explanation real esté en la BD
+            self.lbl_expl.setText(expl)
+            # --------------------------------
+            self._set_expl_visible(True)
             self.expl_shown = True
             self.btn_toggle.setText("Ocultar Explicación \u25b2")
         else:
-            self.toggle_explanation(expand=False)
+            self._set_expl_visible(False)
             self.expl_shown = False
             self.btn_toggle.setText("Revisar Explicación \u25bc")
 
