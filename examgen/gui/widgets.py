@@ -272,9 +272,14 @@ class ExamDialog(QDialog):
 
         for w in self.opts:
             if w.is_correct:
-                w.setStyleSheet("color: lightgreen;")
+                w.setProperty("state", "correct")
             elif w.letter in sel_set:
-                w.setStyleSheet("color: salmon;")
+                w.setProperty("state", "wrong")
+            else:
+                w.setProperty("state", "")
+            w.style().unpolish(w)
+            w.style().polish(w)
+            w.update()
 
     def _load_question(self) -> None:
         self._update_timer()
