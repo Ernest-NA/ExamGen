@@ -263,27 +263,23 @@ class ExamDialog(QDialog):
             s.commit()
 
     def _apply_colors(self, aq: AttemptQuestion) -> None:
+        """Color options using rich text and lock them."""
         sel_set = set(aq.selected_option or "")
 
         for w in self.opts:
+            color = None
             if w.is_correct:
-                w.setProperty("state", "correct")
+                color = "#5af16a"  # verde
             elif w.letter in sel_set:
-                w.setProperty("state", "wrong")
+                color = "#ff6b6b"  # rojo
+
+            if color:
+                w.setText(f"<font color='{color}'>{w.raw_text}</font>")
             else:
-                w.setProperty("state", "")
+                w.setText(w.raw_text)
 
             w.setAttribute(Qt.WA_TransparentForMouseEvents, True)
             w.setFocusPolicy(Qt.NoFocus)
-
-            QTimer.singleShot(
-                0,
-                lambda btn=w: (
-                    btn.style().unpolish(btn),
-                    btn.style().polish(btn),
-                    btn.update(),
-                ),
-            )
 
     def _load_question(self) -> None:
         self._update_timer()
@@ -323,6 +319,7 @@ class ExamDialog(QDialog):
             self.group = QButtonGroup(self)
         for letter, text, is_ok in opts:
             w = widget_cls(text, self)
+            w.raw_text = text
             w.letter = letter
             w.is_correct = is_ok
             if isinstance(w, QRadioButton):
