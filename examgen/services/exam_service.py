@@ -3,6 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from datetime import datetime
 from typing import List
+import random
 
 from sqlalchemy import select, func
 from sqlalchemy.orm import Session, joinedload, selectinload
@@ -114,6 +115,7 @@ def create_attempt(config: ExamConfig) -> Attempt:
                 .limit(config.num_questions or 0)
             )
             questions = stmt.all()
+            random.shuffle(questions)
             if not questions:
                 raise ValueError(
                     f'No hay preguntas para la materia "{config.subject}"'
@@ -128,6 +130,7 @@ def create_attempt(config: ExamConfig) -> Attempt:
                 questions = _select_by_errors(
                     session, config.exam_id, threshold, config.subject_id
                 )
+            random.shuffle(questions)
 
             if not questions:
                 questions = (
@@ -138,6 +141,7 @@ def create_attempt(config: ExamConfig) -> Attempt:
                     .limit(config.num_questions or 0)
                     .all()
                 )
+                random.shuffle(questions)
 
             if not questions:
                 raise ValueError(
@@ -187,10 +191,15 @@ def evaluate_attempt(attempt_id: int) -> Attempt:
 
         total = 0
         for aq in attempt.questions:
-            correct = next(
-                (opt.text for opt in aq.question.options if opt.is_correct), None
-            )
-            aq.is_correct = aq.selected_option == correct
+            opts = list(zip("ABCDE", aq.question.options))
+            correct_set = {
+                letter for letter, opt in opts if getattr(opt, "is_correct", False)
+            }
+            sel = aq.selected_option or ""
+            if len(correct_set) == 1:
+                aq.is_correct = sel in correct_set
+            else:
+                aq.is_correct = set(sel) == correct_set
             aq.score = 1 if aq.is_correct else 0
             total += aq.score
 
