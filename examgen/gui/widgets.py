@@ -263,23 +263,24 @@ class ExamDialog(QDialog):
 
     def _apply_colors(self, aq: AttemptQuestion) -> None:
         sel_set = set(aq.selected_option or "")
-        for w in self.opts:
-            if w.is_correct:
+
+        for w in self.opts:                           # cada QRadioButton/QCheckBox
+            if w.is_correct:                          # SIEMPRE verde
                 w.setStyleSheet(
-                    "QCheckBox,QRadioButton { color: lightgreen; }"
-                    "QCheckBox::indicator:disabled,"
-                    "QRadioButton::indicator:disabled {"
+                    "QAbstractButton { color: lightgreen; }"
+                    "QAbstractButton:disabled { color: lightgreen; }"
+                    "QAbstractButton::indicator:checked:disabled {"
                     "  background: lightgreen; border: 1px solid lightgreen; }"
                 )
-            elif w.letter in sel_set:
+            elif w.letter in sel_set:                 # marcada y NO correcta → rojo
                 w.setStyleSheet(
-                    "QCheckBox,QRadioButton { color: salmon; }"
-                    "QCheckBox::indicator:disabled,"
-                    "QRadioButton::indicator:disabled {"
+                    "QAbstractButton { color: salmon; }"
+                    "QAbstractButton:disabled { color: salmon; }"
+                    "QAbstractButton::indicator:checked:disabled {"
                     "  background: salmon; border: 1px solid salmon; }"
                 )
-            else:
-                w.setStyleSheet("")
+            else:                                     # distractor no elegido
+                w.setStyleSheet("")                   # mantiene gris global
 
     def _load_question(self) -> None:
         self._update_timer()
