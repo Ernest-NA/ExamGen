@@ -149,9 +149,7 @@ class ExamDialog(QDialog):
         exp_layout.addWidget(self.scroll_expl)
         self.exp_container.setMaximumHeight(0)
         self.exp_container.setVisible(False)
-        self.exp_container.setSizePolicy(
-            QSizePolicy.Preferred, QSizePolicy.Fixed
-        )
+        self.exp_container.setSizePolicy(QSizePolicy.Preferred, QSizePolicy.Fixed)
 
         nav = QHBoxLayout()
         self.btn_prev = QPushButton("\u2190 Anterior", clicked=self._prev)
@@ -194,9 +192,7 @@ class ExamDialog(QDialog):
         self.lbl_timer.setText(self._fmt(self.remaining_seconds))
 
     def _update_check_state(self, changed_box: QCheckBox) -> None:
-        sel_boxes = [
-            b for b in self.opts if isinstance(b, QCheckBox) and b.isChecked()
-        ]
+        sel_boxes = [b for b in self.opts if isinstance(b, QCheckBox) and b.isChecked()]
         if len(sel_boxes) > self.num_correct:
             changed_box.setChecked(False)
             QMessageBox.information(
@@ -211,7 +207,8 @@ class ExamDialog(QDialog):
 
     def _set_widgets_enabled(self, enabled: bool) -> None:
         for rb in self.opts:
-            rb.setEnabled(enabled)
+            rb.setAttribute(Qt.WA_TransparentForMouseEvents, not enabled)
+            rb.setFocusPolicy(Qt.StrongFocus if enabled else Qt.NoFocus)
         if enabled:
             self.btn_prev.setEnabled(self.index > 0)
             if isinstance(self.opts[0], QRadioButton):
@@ -255,9 +252,7 @@ class ExamDialog(QDialog):
 
     def _evaluate_selection(self, aq: AttemptQuestion) -> None:
         correct_set = {
-            l
-            for l, opt in zip("ABCDE", aq.question.options)
-            if opt.is_correct
+            l for l, opt in zip("ABCDE", aq.question.options) if opt.is_correct
         }
         if isinstance(self.opts[0], QRadioButton):
             aq.is_correct = aq.selected_option in correct_set
@@ -277,9 +272,18 @@ class ExamDialog(QDialog):
                 w.setProperty("state", "wrong")
             else:
                 w.setProperty("state", "")
-            w.style().unpolish(w)
-            w.style().polish(w)
-            w.update()
+
+            w.setAttribute(Qt.WA_TransparentForMouseEvents, True)
+            w.setFocusPolicy(Qt.NoFocus)
+
+            QTimer.singleShot(
+                0,
+                lambda btn=w: (
+                    btn.style().unpolish(btn),
+                    btn.style().polish(btn),
+                    btn.update(),
+                ),
+            )
 
     def _load_question(self) -> None:
         self._update_timer()
@@ -376,9 +380,9 @@ class ExamDialog(QDialog):
 
     def on_toggle_clicked(self) -> None:
         if not self.expl_shown:
-            self._freeze_options()
             self._evaluate_selection(self.current_aq)
             self._apply_colors(self.current_aq)
+            self._freeze_options()
             # -------- placeholder ----------
             expl = self.current_aq.question.explanation
             if not expl:
