@@ -262,16 +262,14 @@ class ExamDialog(QDialog):
             s.commit()
 
     def _apply_colors(self, aq: AttemptQuestion) -> None:
-        correct_set = {
-            l
-            for l, opt in zip("ABCDE", aq.question.options)
-            if opt.is_correct
-        }
+        sel_set = set(aq.selected_option or "")
         for w in self.opts:
             if w.is_correct:
                 w.setStyleSheet("color: lightgreen;")
-            elif w.letter in (aq.selected_option or ""):
+            elif w.letter in sel_set:
                 w.setStyleSheet("color: salmon;")
+            else:
+                w.setStyleSheet("")
 
     def _load_question(self) -> None:
         self._update_timer()
