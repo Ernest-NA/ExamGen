@@ -35,11 +35,6 @@ from examgen.gui.dialogs import ResultsDialog
 from examgen import models as m
 
 
-def _apply_style_later(widget: QAbstractButton, sheet: str) -> None:
-    """Apply style sheet in next event loop iteration."""
-    QTimer.singleShot(0, lambda w=widget, s=sheet: w.setStyleSheet(s))
-
-
 def clear_layout(layout: QVBoxLayout | QHBoxLayout) -> None:
     while layout.count():
         item = layout.takeAt(0)
@@ -229,6 +224,11 @@ class ExamDialog(QDialog):
             self.btn_next.setEnabled(False)
             self.btn_toggle.setEnabled(False)
 
+    def _lock_widget(self, w: QAbstractButton) -> None:
+        """Prevent *w* from receiving mouse or focus events."""
+        w.setAttribute(Qt.WA_TransparentForMouseEvents, True)
+        w.setFocusPolicy(Qt.NoFocus)
+
     def _tick(self) -> None:
         self.remaining_seconds -= 1
         self._update_timer()
@@ -250,8 +250,8 @@ class ExamDialog(QDialog):
 
     # ----- correction helpers -----
     def _freeze_options(self) -> None:
-        for rb in self.opts:
-            rb.setEnabled(False)
+        for w in self.opts:
+            self._lock_widget(w)
 
     def _evaluate_selection(self, aq: AttemptQuestion) -> None:
         correct_set = {
@@ -270,23 +270,11 @@ class ExamDialog(QDialog):
     def _apply_colors(self, aq: AttemptQuestion) -> None:
         sel_set = set(aq.selected_option or "")
 
-        for w in self.opts:                           # cada QRadioButton/QCheckBox
-            if w.is_correct:                          # SIEMPRE verde
-                _apply_style_later(
-                    w,
-                    "QAbstractButton { color: lightgreen; }"
-                    "QAbstractButton:disabled { color: lightgreen; }"
-                    "QAbstractButton::indicator:checked:disabled {"
-                    " background: lightgreen; border: 1px solid lightgreen; }",
-                )
-            elif w.letter in sel_set:                 # marcada y NO correcta → rojo
-                _apply_style_later(
-                    w,
-                    "QAbstractButton { color: salmon; }"
-                    "QAbstractButton:disabled { color: salmon; }"
-                    "QAbstractButton::indicator:checked:disabled {"
-                    " background: salmon; border: 1px solid salmon; }",
-                )
+        for w in self.opts:
+            if w.is_correct:
+                w.setStyleSheet("color: lightgreen;")
+            elif w.letter in sel_set:
+                w.setStyleSheet("color: salmon;")
 
     def _load_question(self) -> None:
         self._update_timer()
