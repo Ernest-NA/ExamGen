@@ -3,18 +3,16 @@ from typing import List
 from datetime import datetime
 import random
 
-from PySide6.QtCore import Qt, QTimer, QPropertyAnimation
+from PySide6.QtCore import Qt, QTimer
 from PySide6.QtGui import QKeySequence, QShortcut
 from PySide6.QtWidgets import (
     QButtonGroup,
     QDialog,
     QLabel,
-    QFrame,
     QMessageBox,
     QPushButton,
     QRadioButton,
     QCheckBox,
-    QScrollArea,
     QTableWidget,
     QTableWidgetItem,
     QVBoxLayout,
@@ -80,9 +78,6 @@ class OptionTable(QTableWidget):
         return opts, correct
 
 
-MAX_RATIO = 0.40
-
-
 class ExamDialog(QDialog):
     """Modal dialog showing an ongoing exam attempt with pause and resume."""
 
@@ -118,9 +113,7 @@ class ExamDialog(QDialog):
         self.lbl_prompt = QLabel(alignment=Qt.AlignJustify)
         self.lbl_prompt.setWordWrap(True)
         self.lbl_prompt.setContentsMargins(0, 12, 0, 24)
-        self.lbl_prompt.setSizePolicy(
-            QSizePolicy.Preferred, QSizePolicy.MinimumExpanding
-        )
+        self.lbl_prompt.setSizePolicy(QSizePolicy.Preferred, QSizePolicy.Fixed)
         self.group = QButtonGroup(self)
         self.opts: List[QRadioButton] = []
 
@@ -128,28 +121,6 @@ class ExamDialog(QDialog):
         self.vbox_opts = QVBoxLayout(opts_container)
         self.vbox_opts.setContentsMargins(0, 0, 0, 0)
 
-        self.lbl_expl = QLabel(wordWrap=True, alignment=Qt.AlignJustify)
-        self.lbl_expl.setContentsMargins(12, 8, 12, 8)
-        self.scroll_expl = QScrollArea(widgetResizable=True)
-        self.scroll_expl.setWidget(self.lbl_expl)
-        self.scroll_expl.setFrameStyle(QFrame.NoFrame)
-
-        self.exp_container = QFrame(self)
-        self.exp_container.setObjectName("ExplanationPanel")
-        self.exp_container.setFrameShape(QFrame.NoFrame)
-        self.exp_container.setStyleSheet(
-            "QFrame#ExplanationPanel {"
-            " background-color: rgba(255,255,255,0.03);"
-            " border-top: 1px solid rgba(255,255,255,0.12);"
-            "}"
-            "QScrollArea { border: none; }"
-        )
-        exp_layout = QVBoxLayout(self.exp_container)
-        exp_layout.setContentsMargins(0, 0, 0, 0)
-        exp_layout.addWidget(self.scroll_expl)
-        self.exp_container.setMaximumHeight(0)
-        self.exp_container.setVisible(False)
-        self.exp_container.setSizePolicy(QSizePolicy.Preferred, QSizePolicy.Fixed)
 
         nav = QHBoxLayout()
         self.btn_prev = QPushButton("\u2190 Anterior", clicked=self._prev)
@@ -163,7 +134,6 @@ class ExamDialog(QDialog):
         root.addLayout(btn_bar)
         root.addWidget(self.lbl_prompt)
         root.addWidget(opts_container)
-        root.addWidget(self.exp_container)
         root.addLayout(nav)
 
         QShortcut(QKeySequence("Ctrl+P"), self, activated=self._toggle_pause)
@@ -292,16 +262,13 @@ class ExamDialog(QDialog):
         self.current_aq = aq
         self.expl_shown = False
         self.lbl_prompt.setText(aq.question.prompt)
-        expl = aq.question.explanation or "Sin explicación disponible."
-        self.lbl_expl.setText(expl)
+        self.lbl_prompt.adjustSize()
         has_expl = bool(aq.question.explanation and aq.question.explanation.strip())
         self._has_expl = has_expl
         self.btn_toggle.setEnabled(has_expl)
         self.btn_toggle.setToolTip(
             "" if has_expl else "Esta pregunta no tiene explicación guardada"
         )
-        self.exp_container.setMaximumHeight(0)
-        self.exp_container.setVisible(False)
         self.btn_toggle.setText("Revisar Explicación \u25bc")
         self.btn_toggle.setEnabled(False)
         self.btn_next.setEnabled(False)
@@ -327,7 +294,15 @@ class ExamDialog(QDialog):
             if isinstance(w, QRadioButton):
                 self.group.addButton(w)
             self.opts.append(w)
+            exp_text = aq.question.options_dict[letter].explanation or ""
+            lbl_exp = QLabel(exp_text, self)
+            lbl_exp.setWordWrap(True)
+            lbl_exp.setObjectName("OptExplanation")
+            lbl_exp.setVisible(False)
+            w.lbl_exp = lbl_exp  # type: ignore[attr-defined]
+
             self.vbox_opts.addWidget(w)
+            self.vbox_opts.addWidget(lbl_exp)
             if isinstance(w, QRadioButton):
                 w.setChecked(aq.selected_option == letter)
             else:
@@ -361,21 +336,6 @@ class ExamDialog(QDialog):
         if self.index == len(self.attempt.questions) - 1:
             self._next()
 
-    def _set_expl_visible(self, show: bool) -> None:
-        target = int(self.height() * MAX_RATIO) if show else 0
-        if target > 0:
-            self.exp_container.setVisible(True)
-
-        anim = QPropertyAnimation(self.exp_container, b"maximumHeight", self)
-        anim.setDuration(200)
-        anim.setStartValue(self.exp_container.maximumHeight())
-        anim.setEndValue(target)
-
-        def on_finished() -> None:
-            self.exp_container.setVisible(target > 0)
-
-        anim.finished.connect(on_finished)
-        anim.start(QPropertyAnimation.DeleteWhenStopped)
 
     def on_toggle_clicked(self) -> None:
         if not self.expl_shown:
@@ -383,36 +343,15 @@ class ExamDialog(QDialog):
             self._evaluate_selection(self.current_aq)
             self._apply_colors(self.current_aq)
             self._freeze_options()
-            # -------- placeholder ----------
-            expl = self.current_aq.question.explanation
-            if not expl:
-                expl = (
-                    "A. Una de las ventajas clave de SFDX es que facilita el uso de "
-                    "sistemas de control de versiones (VCS) como Git, donde puedes "
-                    "almacenar y gestionar el código, ya sea de manera local o en un "
-                    "repositorio remoto. Esto apoya el desarrollo colaborativo y el "
-                    "versionado adecuado.\n"
-                    "----------------------------------------------------------------------------\n"
-                    "D. SFDX permite instalar metadatos de aplicaciones desde un repositorio "
-                    "central. Esto se puede hacer mediante el uso de control de versiones y la "
-                    "gestión de paquetes o mediante un repositorio centralizado, lo cual "
-                    "facilita la instalación y gestión de metadatos en diferentes entornos.\n"
-                    "----------------------------------------------------------------------------\n"
-                    "E. La capacidad de crear scratch orgs es una de las funcionalidades más "
-                    "importantes de SFDX. Las scratch orgs son entornos temporales y "
-                    "configurables que los desarrolladores pueden utilizar para probar "
-                    "funcionalidades y desarrollar de manera aislada antes de integrarlas en "
-                    "la org principal.\n"
-                )  # TODO: quitar placeholder cuando explanation real esté en la BD
-            self.lbl_expl.setText(expl)
-            # --------------------------------
-            self._set_expl_visible(True)
+            for w in self.opts:
+                w.lbl_exp.setVisible(bool(w.lbl_exp.text().strip()))
             self.expl_shown = True
-            self.btn_toggle.setText("Ocultar Explicación \u25b2")
+            self.btn_toggle.setText("Ocultar Explicaci\u00f3n \u25b2")
         else:
-            self._set_expl_visible(False)
+            for w in self.opts:
+                w.lbl_exp.setVisible(False)
             self.expl_shown = False
-            self.btn_toggle.setText("Revisar Explicación \u25bc")
+            self.btn_toggle.setText("Revisar Explicaci\u00f3n \u25bc")
 
     # ------------------------ nav -------------------------
     def _prev(self) -> None:
