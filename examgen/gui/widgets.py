@@ -21,6 +21,7 @@ from PySide6.QtWidgets import (
     QHBoxLayout,
     QWidget,
     QSizePolicy,
+    QAbstractButton,
 )
 
 from examgen.models import Attempt, AttemptQuestion, SessionLocal
@@ -32,6 +33,11 @@ from examgen.services.exam_service import (
 from examgen.gui.dialogs import ResultsDialog
 
 from examgen import models as m
+
+
+def _apply_style_later(widget: QAbstractButton, sheet: str) -> None:
+    """Apply style sheet in next event loop iteration."""
+    QTimer.singleShot(0, lambda w=widget, s=sheet: w.setStyleSheet(s))
 
 
 def clear_layout(layout: QVBoxLayout | QHBoxLayout) -> None:
@@ -266,21 +272,21 @@ class ExamDialog(QDialog):
 
         for w in self.opts:                           # cada QRadioButton/QCheckBox
             if w.is_correct:                          # SIEMPRE verde
-                w.setStyleSheet(
+                _apply_style_later(
+                    w,
                     "QAbstractButton { color: lightgreen; }"
                     "QAbstractButton:disabled { color: lightgreen; }"
                     "QAbstractButton::indicator:checked:disabled {"
-                    "  background: lightgreen; border: 1px solid lightgreen; }"
+                    " background: lightgreen; border: 1px solid lightgreen; }",
                 )
             elif w.letter in sel_set:                 # marcada y NO correcta → rojo
-                w.setStyleSheet(
+                _apply_style_later(
+                    w,
                     "QAbstractButton { color: salmon; }"
                     "QAbstractButton:disabled { color: salmon; }"
                     "QAbstractButton::indicator:checked:disabled {"
-                    "  background: salmon; border: 1px solid salmon; }"
+                    " background: salmon; border: 1px solid salmon; }",
                 )
-            else:                                     # distractor no elegido
-                w.setStyleSheet("")                   # mantiene gris global
 
     def _load_question(self) -> None:
         self._update_timer()
