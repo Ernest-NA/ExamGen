@@ -90,9 +90,8 @@ class ExamDialog(QDialog):
         self.lbl_timer = QLabel(alignment=Qt.AlignRight)
         self.lbl_progress = QLabel(alignment=Qt.AlignCenter)
         self.btn_pause = QPushButton("Pausar", clicked=self._toggle_pause)
-        self.btn_toggle = QPushButton(
-            "Revisar Explicación \u25bc", clicked=self.on_toggle_clicked
-        )
+        self.btn_toggle = QPushButton("Revisar Explicación \u25bc")
+        self.btn_toggle.clicked.connect(self.on_toggle_clicked)
 
         header = QHBoxLayout()
         header.addWidget(self.lbl_subject)
@@ -229,11 +228,19 @@ class ExamDialog(QDialog):
 
     def _apply_colors(self, aq: AttemptQuestion) -> None:
         correct = next(
-            (letter for letter, opt in zip("ABCD", aq.question.options) if opt.is_correct),
+            (
+                letter
+                for letter, opt in zip("ABCD", aq.question.options)
+                if opt.is_correct
+            ),
             "",
         )
         selected = next(
-            (letter for letter, opt in zip("ABCD", aq.question.options) if opt.text == aq.selected_option),
+            (
+                letter
+                for letter, opt in zip("ABCD", aq.question.options)
+                if opt.text == aq.selected_option
+            ),
             "",
         )
         for rb, letter in zip(self.opts, "ABCD"):
@@ -268,15 +275,11 @@ class ExamDialog(QDialog):
             rb.setText(opt.text)
             rb.setChecked(aq.selected_option == opt.text)
             rb.setEnabled(True)
-            rb.setStyleSheet("color: black;")
+            rb.setStyleSheet("")
         for rb in self.opts[len(aq.question.options) :]:
             rb.hide()
             rb.setChecked(False)
             rb.setText("")
-
-        if aq.is_correct is not None:
-            self._freeze_options()
-            self._apply_colors(aq)
 
         self.btn_prev.setEnabled(self.index > 0)
         if self.index == total - 1:
@@ -323,13 +326,13 @@ class ExamDialog(QDialog):
             self._freeze_options()
             self._evaluate_selection(self.current_aq)
             self._apply_colors(self.current_aq)
+            self.toggle_explanation(expand=True)
             self.expl_shown = True
             self.btn_toggle.setText("Ocultar Explicación \u25b2")
-            self.toggle_explanation(expand=True)
         else:
+            self.toggle_explanation(expand=False)
             self.expl_shown = False
             self.btn_toggle.setText("Revisar Explicación \u25bc")
-            self.toggle_explanation(expand=False)
 
     # ------------------------ nav -------------------------
     def _prev(self) -> None:
