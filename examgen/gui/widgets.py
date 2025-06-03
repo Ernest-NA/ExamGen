@@ -274,10 +274,10 @@ class ExamDialog(QDialog):
                 color = "#ff6b6b"  # rojo
 
             if color:
-                w.setText(f"<font color='{color}'>{w.raw_text}</font>")
+                w.setStyleSheet(f"color: {color};")
             else:
-                w.setText(w.raw_text)
-            w.setTextFormat(Qt.RichText)
+                w.setStyleSheet("")
+            w.setText(w.raw_text)
             w.adjustSize()
 
             w.setAttribute(Qt.WA_TransparentForMouseEvents, True)
