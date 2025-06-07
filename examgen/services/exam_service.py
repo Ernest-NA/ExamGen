@@ -183,42 +183,50 @@ def create_attempt(config: ExamConfig) -> Attempt:
         return attempt
 
 
+def _compute_score(attempt: Attempt) -> int:
+    """Calculate score and update AttemptQuestion entries."""
+    total = 0
+    for aq in attempt.questions:
+        opts = list(zip("ABCDE", aq.question.options))
+        correct_set = {
+            letter for letter, opt in opts if getattr(opt, "is_correct", False)
+        }
+        sel = aq.selected_option or ""
+        if len(correct_set) == 1:
+            aq.is_correct = sel in correct_set
+        else:
+            aq.is_correct = set(sel) == correct_set
+        aq.score = 1 if aq.is_correct else 0
+        total += aq.score
+
+    if attempt.ended_at is None:
+        attempt.ended_at = datetime.utcnow()
+
+    return total
+
+
 def evaluate_attempt(attempt_id: int) -> Attempt:
     """Evaluate an attempt and store the score."""
-    with SessionLocal() as session:
+    with SessionLocal() as session:  # type: Session
         session.expire_on_commit = False
+
         q_poly = with_polymorphic(m.Question, "*")
+
         stmt = (
-            select(Attempt)
+            select(m.Attempt)
+            .where(m.Attempt.id == attempt_id)
             .options(
-                selectinload(Attempt.questions)
-                .selectinload(AttemptQuestion.question.of_type(q_poly))
+                selectinload(m.Attempt.questions)
+                .selectinload(m.AttemptQuestion.question.of_type(q_poly))
                 .selectinload(q_poly.MCQQuestion.options)
             )
-            .filter_by(id=attempt_id)
         )
-        attempt = session.execute(stmt).unique().scalar_one()
 
-        total = 0
-        for aq in attempt.questions:
-            opts = list(zip("ABCDE", aq.question.options))
-            correct_set = {
-                letter for letter, opt in opts if getattr(opt, "is_correct", False)
-            }
-            sel = aq.selected_option or ""
-            if len(correct_set) == 1:
-                aq.is_correct = sel in correct_set
-            else:
-                aq.is_correct = set(sel) == correct_set
-            aq.score = 1 if aq.is_correct else 0
-            total += aq.score
+        attempt: m.Attempt = session.execute(stmt).unique().scalar_one()
 
-        attempt.score = total
-        if attempt.ended_at is None:
-            attempt.ended_at = datetime.utcnow()
+        attempt.score = _compute_score(attempt)
 
         session.commit()
-        session.refresh(attempt)
         return attempt
 
 
