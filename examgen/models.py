@@ -230,7 +230,9 @@ def get_engine(db_path: str | Path = "examgen.db"):
 
 
 engine = get_engine()
-SessionLocal = sessionmaker(bind=engine, future=True)
+SessionLocal = sessionmaker(
+    bind=engine, expire_on_commit=False, future=True
+)
 
 
 def init_db(db_path: str | Path = "examgen.db") -> None:
