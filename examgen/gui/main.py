@@ -75,7 +75,8 @@ class MainWindow(QMainWindow):
         self._create_menu_bar()
         self._create_status_bar()
         self.lbl_stats = QLabel(self)
-        self.statusBar().addPermanentWidget(self.lbl_stats)
+        self.statusBar().addWidget(self.lbl_stats)
+        self.lbl_stats.setContentsMargins(4, 0, 0, 0)
         self._refresh_stats()
 
     # --------------------------------------------------------------------- #
