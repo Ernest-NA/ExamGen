@@ -147,6 +147,20 @@ class QuestionsWindow(QWidget):
 
             btn_del = QPushButton("🗑️")
             btn_del.setFlat(True)
+            btn_del.setCursor(Qt.PointingHandCursor)
+            btn_del.setStyleSheet(
+                """
+                QPushButton {
+                    background: transparent;
+                    border: none;
+                    color: #ff6b6b;
+                    font-size: 16px;
+                }
+                QPushButton:hover {
+                    color: #ffa0a0;
+                }
+            """
+            )
             btn_del.clicked.connect(lambda _, qid=q.id: self._delete_question(qid))
             self.table.setCellWidget(cur_row, 5, btn_del)
             if n_opts > 1:
