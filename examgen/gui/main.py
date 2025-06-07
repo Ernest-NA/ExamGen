@@ -48,6 +48,7 @@ from PySide6.QtWidgets import (
 )
 
 from examgen import models as m
+from examgen.models import SessionLocal
 from examgen.gui.dialogs import QuestionDialog
 from examgen.gui.style import Style
 from examgen.ui.styles import apply_app_styles, BUTTON_STYLE
@@ -73,8 +74,9 @@ class MainWindow(QMainWindow):
         # Menú y barra de estado
         self._create_menu_bar()
         self._create_status_bar()
-        self._update_subject_count()
-        self._update_status()
+        self.lbl_stats = QLabel(self)
+        self.statusBar().addPermanentWidget(self.lbl_stats)
+        self._refresh_stats()
 
     # --------------------------------------------------------------------- #
     #  Menú                                                                  #
@@ -139,18 +141,11 @@ class MainWindow(QMainWindow):
         sb = QStatusBar(self)
         self.setStatusBar(sb)
 
-    def _update_subject_count(self) -> None:
-        with m.Session(m.get_engine(DB_PATH)) as s:
-            count = s.query(m.Subject).count()
-        self.statusBar().showMessage(f"Materias: {count}")
-
-    def _update_status(self) -> None:
-        with m.Session(m.get_engine(DB_PATH)) as s:
-            subject_count = s.query(m.Subject).count()
-            question_count = s.query(m.Question).count()
-        self.statusBar().showMessage(
-            f"Materias: {subject_count}   Preguntas: {question_count}"
-        )
+    def _refresh_stats(self) -> None:
+        with SessionLocal() as s:
+            num_subj = s.query(m.Subject).count()
+            num_q = s.query(m.MCQQuestion).count()
+        self.lbl_stats.setText(f"Materias: {num_subj}   Preguntas: {num_q}")
 
     # --------------------------------------------------------------------- #
     #  Temas                                                                #
@@ -174,8 +169,7 @@ class MainWindow(QMainWindow):
     # --------------------------------------------------------------------- #
     def _open_question_dialog(self) -> None:
         if QuestionDialog(self, db_path=DB_PATH).exec():
-            self._update_subject_count()
-            self._update_status()
+            self._refresh_stats()
 
     def _show_history(self) -> None:
         from examgen.gui.dialogs import AttemptsHistoryDialog
