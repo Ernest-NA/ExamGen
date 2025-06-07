@@ -20,6 +20,7 @@ from PySide6.QtWidgets import (
     QPlainTextEdit,
     QTableWidget,
     QTableWidgetItem,
+    QToolButton,
     QHBoxLayout,
     QVBoxLayout,
     QWidget,
@@ -167,14 +168,17 @@ class QuestionDialog(QDialog):
         self.le_reference: QLineEdit = self.findChild(QLineEdit, "le_reference")
         self.prompt: QPlainTextEdit = self.findChild(QPlainTextEdit, "prompt")
         self.counter: QLabel = self.findChild(QLabel, "counter")
-        self.table: OptionTable = self.findChild(OptionTable, "table")
-        self.btn_add: QPushButton = self.findChild(QPushButton, "btn_add")
+        self.tbl_options: OptionTable = self.findChild(OptionTable, "tbl_options")
+        self.btn_add: QToolButton = self.findChild(QToolButton, "btn_add")
+        self.btn_del: QToolButton = self.findChild(QToolButton, "btn_del")
 
         self.buttons.rejected.connect(self.reject)
         self.btn_ok.clicked.connect(self.accept)
         self.prompt.textChanged.connect(self._update_counter)
         if self.btn_add is not None:
-            self.btn_add.clicked.connect(self.table.add_row)
+            self.btn_add.clicked.connect(self._add_row)
+        if self.btn_del is not None:
+            self.btn_del.clicked.connect(self._del_row)
 
         self._load_subjects()
         self._update_counter()
@@ -194,6 +198,14 @@ class QuestionDialog(QDialog):
         self.cb_subject.addItems(names)
         self.cb_subject.setPlaceholderText("Seleccione / escriba…")
 
+    def _add_row(self) -> None:
+        self.tbl_options.insertRow(self.tbl_options.rowCount())
+
+    def _del_row(self) -> None:
+        r = self.tbl_options.currentRow()
+        if r >= 0:
+            self.tbl_options.removeRow(r)
+
     # ---------------- guardar -----------------
     def accept(self):  # type: ignore[override]  noqa: D401
         subj = self.cb_subject.currentText().strip()
@@ -206,7 +218,7 @@ class QuestionDialog(QDialog):
             )
             return
 
-        options, correct = self.table.collect()
+        options, correct = self.tbl_options.collect()
         if len(options) < 2 or correct == 0:
             QMessageBox.warning(
                 self,
