@@ -514,11 +514,13 @@ class ResultsDialog(QDialog):
     def show_for_attempt(cls, attempt: Attempt, parent: QWidget | None = None) -> None:
         session = SessionLocal()
         attempt_db = (
-            session.query(Attempt)
+            session.query(m.Attempt)
             .options(
-                selectinload(Attempt.questions)
-                .joinedload(m.AttemptQuestion.question)
-                .joinedload(m.MCQQuestion.options)
+                selectinload(m.Attempt.questions)
+                .joinedload(
+                    m.AttemptQuestion.question.of_type(m.MCQQuestion)
+                )
+                .selectinload(m.MCQQuestion.options)
             )
             .get(attempt.id)
         )
