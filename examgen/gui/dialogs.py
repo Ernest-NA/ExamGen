@@ -29,6 +29,7 @@ from PySide6.QtWidgets import (
     QStyleOptionViewItem,
     QCompleter,
 )
+from datetime import datetime
 
 from examgen import models as m
 from examgen.models import SessionLocal
@@ -515,6 +516,52 @@ class ResultsDialog(QDialog):
     def show_for_attempt(cls, attempt: Attempt, parent: QWidget | None = None) -> None:
         dlg = cls(attempt, parent)
         dlg.exec()
+
+
+class AttemptsHistoryDialog(QDialog):
+    def __init__(self, parent: QWidget | None = None):
+        super().__init__(parent)
+        self.setWindowTitle("Historial de pruebas")
+
+        with SessionLocal() as s:
+            attempts = (
+                s.query(m.Attempt)
+                .order_by(m.Attempt.started_at.desc())
+                .all()
+            )
+
+        cols = ["Materia", "Inicio", "Duración", "Preguntas", "Correctas", "%"]
+        table = QTableWidget(len(attempts), len(cols), self)
+        table.setHorizontalHeaderLabels(cols)
+        table.horizontalHeader().setStretchLastSection(True)
+        table.verticalHeader().setVisible(False)
+
+        fmt_time = "%d/%m/%Y %H:%M"
+
+        for row, at in enumerate(attempts):
+            table.setItem(row, 0, QTableWidgetItem(at.subject))
+            start = at.started_at.strftime(fmt_time) if at.started_at else "-"
+            table.setItem(row, 1, QTableWidgetItem(start))
+            dur_secs = (
+                (at.ended_at - at.started_at).total_seconds() if at.ended_at else 0
+            )
+            dur_txt = f"{int(dur_secs // 60)}:{int(dur_secs % 60):02d} min"
+            table.setItem(row, 2, QTableWidgetItem(dur_txt))
+            total_q = len(at.questions)
+            table.setItem(row, 3, QTableWidgetItem(str(total_q)))
+            corr = at.score or 0
+            pct = round((corr / total_q) * 100) if total_q else 0
+            table.setItem(row, 4, QTableWidgetItem(str(corr)))
+            table.setItem(row, 5, QTableWidgetItem(f"{pct} %"))
+
+        buttons = QDialogButtonBox(QDialogButtonBox.Close)
+        buttons.rejected.connect(self.reject)
+
+        root = QVBoxLayout(self)
+        root.addWidget(table)
+        root.addWidget(buttons, alignment=Qt.AlignCenter)
+
+        self.resize(900, 500)
 
 
 if __name__ == "__main__":
