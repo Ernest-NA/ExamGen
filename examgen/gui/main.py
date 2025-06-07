@@ -178,11 +178,8 @@ class MainWindow(QMainWindow):
     def _show_questions(self) -> None:
         from examgen.gui.questions_window import QuestionsWindow
 
-        if not hasattr(self, "_questions_win") or self._questions_win is None:
-            self._questions_win = QuestionsWindow(self)
-        self._questions_win.show()
-        self._questions_win.raise_()
-        self._questions_win.activateWindow()
+        win = QuestionsWindow()
+        win.show()
 
     def _show_history(self) -> None:
         from examgen.gui.dialogs import AttemptsHistoryDialog
