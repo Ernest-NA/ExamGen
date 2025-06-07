@@ -29,7 +29,6 @@ from PySide6.QtWidgets import (
     QStyleOptionViewItem,
     QCompleter,
 )
-from datetime import datetime
 
 from examgen import models as m
 from examgen.models import SessionLocal
@@ -40,6 +39,7 @@ from examgen.services.exam_service import (
     Attempt,
     evaluate_attempt,
 )
+from sqlalchemy.orm import selectinload
 
 DB_PATH = Path("examgen.db")
 MAX_CHARS = 3000
@@ -523,45 +523,55 @@ class AttemptsHistoryDialog(QDialog):
         super().__init__(parent)
         self.setWindowTitle("Historial de pruebas")
 
-        with SessionLocal() as s:
-            attempts = (
-                s.query(m.Attempt)
-                .order_by(m.Attempt.started_at.desc())
-                .all()
-            )
-
         cols = ["Materia", "Inicio", "Duración", "Preguntas", "Correctas", "%"]
-        table = QTableWidget(len(attempts), len(cols), self)
-        table.setHorizontalHeaderLabels(cols)
-        table.horizontalHeader().setStretchLastSection(True)
-        table.verticalHeader().setVisible(False)
+        self.table = QTableWidget(0, len(cols), self)
+        self.table.setHorizontalHeaderLabels(cols)
+        self.table.horizontalHeader().setStretchLastSection(True)
+        self.table.verticalHeader().setVisible(False)
 
-        fmt_time = "%d/%m/%Y %H:%M"
+        self._session = SessionLocal()
+        attempts = (
+            self._session.query(m.Attempt)
+            .options(selectinload(m.Attempt.questions))
+            .order_by(m.Attempt.started_at.desc())
+            .all()
+        )
 
+        fmt = "%d/%m/%Y %H:%M"
+        self.table.setRowCount(len(attempts))
         for row, at in enumerate(attempts):
-            table.setItem(row, 0, QTableWidgetItem(at.subject))
-            start = at.started_at.strftime(fmt_time) if at.started_at else "-"
-            table.setItem(row, 1, QTableWidgetItem(start))
-            dur_secs = (
-                (at.ended_at - at.started_at).total_seconds() if at.ended_at else 0
-            )
-            dur_txt = f"{int(dur_secs // 60)}:{int(dur_secs % 60):02d} min"
-            table.setItem(row, 2, QTableWidgetItem(dur_txt))
+            start = at.started_at.strftime(fmt) if at.started_at else "-"
+            if at.ended_at:
+                secs = int((at.ended_at - at.started_at).total_seconds())
+                dur_txt = f"{secs//60}:{secs%60:02d} min"
+            else:
+                dur_txt = "-"
+
             total_q = len(at.questions)
-            table.setItem(row, 3, QTableWidgetItem(str(total_q)))
             corr = at.score or 0
             pct = round((corr / total_q) * 100) if total_q else 0
-            table.setItem(row, 4, QTableWidgetItem(str(corr)))
-            table.setItem(row, 5, QTableWidgetItem(f"{pct} %"))
+
+            vals = [at.subject, start, dur_txt, str(total_q), str(corr), f"{pct} %"]
+            for col, val in enumerate(vals):
+                item = QTableWidgetItem(val)
+                item.setFlags(Qt.ItemIsEnabled)
+                if col >= 3:
+                    item.setTextAlignment(Qt.AlignRight | Qt.AlignVCenter)
+                self.table.setItem(row, col, item)
 
         buttons = QDialogButtonBox(QDialogButtonBox.Close)
         buttons.rejected.connect(self.reject)
 
         root = QVBoxLayout(self)
-        root.addWidget(table)
+        root.addWidget(self.table)
         root.addWidget(buttons, alignment=Qt.AlignCenter)
 
         self.resize(900, 500)
+
+    def reject(self) -> None:  # type: ignore[override]
+        if hasattr(self, "_session"):
+            self._session.close()
+        super().reject()
 
 
 if __name__ == "__main__":
