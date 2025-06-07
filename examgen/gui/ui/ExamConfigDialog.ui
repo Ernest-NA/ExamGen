@@ -72,11 +72,17 @@
      <item row="3" column="1">
       <widget class="QWidget" name="widget_radio">
        <layout class="QHBoxLayout" name="horizontalLayout">
-        <property name="contentsMargins">
-         <left>0</left>
-         <top>0</top>
-         <right>0</right>
-         <bottom>0</bottom>
+        <property name="leftMargin">
+         <number>0</number>
+        </property>
+        <property name="topMargin">
+         <number>0</number>
+        </property>
+        <property name="rightMargin">
+         <number>0</number>
+        </property>
+        <property name="bottomMargin">
+         <number>0</number>
         </property>
         <item>
          <widget class="QRadioButton" name="rb_random">
