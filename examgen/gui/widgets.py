@@ -410,6 +410,12 @@ class ExamDialog(QDialog):
             self.timer.stop()
         self._save_selection()
         self.attempt.ended_at = datetime.utcnow()
+
+        from examgen.models import SessionLocal
+        with SessionLocal() as s:
+            s.merge(self.attempt)
+            s.commit()
+
         self.attempt = evaluate_attempt(self.attempt.id)
 
         def _show() -> None:
