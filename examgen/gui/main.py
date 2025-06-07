@@ -3,7 +3,7 @@ examgen/gui/main.py – Ventana principal de ExamGen con selector de tema.
 
 • El tema *Oscuro* se aplica al arrancar.
 • Menú “Tema” permite cambiar entre Claro y Oscuro en caliente.
-• Menú “Archivo” incluye “Nueva pregunta…”.
+• Menú “Archivo” incluye “Preguntas…”.
 """
 
 from __future__ import annotations
@@ -112,9 +112,9 @@ class MainWindow(QMainWindow):
         exam_action.triggered.connect(_do_exam)
         archivo.addAction(exam_action)
 
-        new_question_action = QAction("Nueva &pregunta…", self)
-        new_question_action.triggered.connect(self._open_question_dialog)
-        archivo.addAction(new_question_action)
+        act_questions = QAction("Preguntas", self)
+        act_questions.triggered.connect(self._show_questions)
+        archivo.addAction(act_questions)
         history_action = QAction("Historial", self)
         history_action.triggered.connect(self._show_history)
         archivo.addAction(history_action)
@@ -175,8 +175,18 @@ class MainWindow(QMainWindow):
         if QuestionDialog(self, db_path=DB_PATH).exec():
             self._refresh_stats()
 
+    def _show_questions(self) -> None:
+        from examgen.gui.questions_window import QuestionsWindow
+
+        if not hasattr(self, "_questions_win") or self._questions_win is None:
+            self._questions_win = QuestionsWindow(self)
+        self._questions_win.show()
+        self._questions_win.raise_()
+        self._questions_win.activateWindow()
+
     def _show_history(self) -> None:
         from examgen.gui.dialogs import AttemptsHistoryDialog
+
         AttemptsHistoryDialog(self).exec()
 
 
