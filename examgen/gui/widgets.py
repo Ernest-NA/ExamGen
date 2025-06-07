@@ -99,10 +99,11 @@ class ExamDialog(QDialog):
         self.btn_pause = QPushButton("Pausar", clicked=self._toggle_pause)
         self.btn_toggle = QPushButton("Revisar Explicación \u25bc")
         self.btn_toggle.clicked.connect(self.on_toggle_clicked)
+        self.btn_toggle.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Fixed)
 
         header_grid = QGridLayout()
         header_grid.setColumnStretch(1, 1)
-        header_grid.setHorizontalSpacing(12)
+        header_grid.setHorizontalSpacing(6)
         header_grid.setVerticalSpacing(4)
         header_grid.setContentsMargins(0, 0, 0, 0)
 
@@ -115,7 +116,7 @@ class ExamDialog(QDialog):
 
         self.lbl_prompt = QLabel(alignment=Qt.AlignJustify)
         self.lbl_prompt.setWordWrap(True)
-        self.lbl_prompt.setContentsMargins(0, 12, 0, 24)
+        self.lbl_prompt.setContentsMargins(0, 8, 0, 16)
         self.lbl_prompt.setSizePolicy(QSizePolicy.Preferred, QSizePolicy.Fixed)
         self.group = QButtonGroup(self)
         self.opts: List[QRadioButton] = []
@@ -133,6 +134,8 @@ class ExamDialog(QDialog):
         nav.addWidget(self.btn_next)
 
         root = QVBoxLayout(self)
+        root.setContentsMargins(12, 12, 12, 12)
+        root.setSpacing(8)
         root.addLayout(header_grid)
         root.addWidget(self.lbl_prompt)
         root.addWidget(opts_container)
