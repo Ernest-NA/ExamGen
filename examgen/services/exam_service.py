@@ -205,28 +205,43 @@ def _compute_score(attempt: Attempt) -> int:
     return total
 
 
-def evaluate_attempt(attempt_id: int) -> Attempt:
+def evaluate_attempt(attempt_id: int) -> m.Attempt:
     """Evaluate an attempt and store the score."""
-    with SessionLocal() as session:  # type: Session
-        session.expire_on_commit = False
-
-        q_poly = with_polymorphic(m.Question, "*")
-
-        stmt = (
-            select(m.Attempt)
-            .where(m.Attempt.id == attempt_id)
+    with SessionLocal() as s:
+        attempt = (
+            s.query(m.Attempt)
             .options(
                 selectinload(m.Attempt.questions)
-                .selectinload(m.AttemptQuestion.question.of_type(q_poly))
-                .selectinload(q_poly.MCQQuestion.options)
+                .selectinload(m.AttemptQuestion.question)
+                .selectinload(m.MCQQuestion.options)
             )
+            .get(attempt_id)
         )
+        if not attempt:
+            raise ValueError("Attempt not found")
 
-        attempt: m.Attempt = session.execute(stmt).unique().scalar_one()
+        correct = 0
+        for aq in attempt.questions:
+            q = aq.question
+            correct_set = {
+                l for l, opt in zip("ABCDE", q.options) if opt.is_correct
+            }
+            if aq.selected_option:
+                if len(correct_set) == 1:
+                    aq.is_correct = aq.selected_option in correct_set
+                else:
+                    aq.is_correct = set(aq.selected_option) == correct_set
+            else:
+                aq.is_correct = False
+            if aq.is_correct:
+                correct += 1
 
-        attempt.score = _compute_score(attempt)
+        attempt.score = correct
+        if attempt.ended_at is None:
+            attempt.ended_at = datetime.utcnow()
 
-        session.commit()
+        s.commit()
+        s.refresh(attempt)
         return attempt
 
 
