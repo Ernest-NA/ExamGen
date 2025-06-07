@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from PySide6.QtWidgets import (
+    QDialog,
     QWidget,
     QVBoxLayout,
     QHBoxLayout,
@@ -23,12 +24,12 @@ from examgen.gui.dialogs import QuestionDialog
 from sqlalchemy.orm import selectinload
 
 
-class QuestionsWindow(QWidget):
+class QuestionsWindow(QDialog):
     def __init__(self, parent: QWidget | None = None) -> None:
-        super().__init__(parent)
+        super().__init__(parent=None)
         self.setWindowTitle("Preguntas")
-        if parent is not None:
-            self.resize(parent.size())
+        self.resize(1100, 700)
+        self.setAttribute(Qt.WA_DeleteOnClose)
 
         # --- fila 1: filtros + botón ---
         self.cb_subject = QComboBox()
@@ -193,15 +194,14 @@ class QuestionsWindow(QWidget):
             self._refresh_stats()
 
     def _delete_question(self, qid: int) -> None:
-        if (
-            QMessageBox.question(
-                self,
-                "Eliminar pregunta",
-                "¿Seguro que deseas borrar esta pregunta?",
-                QMessageBox.Yes | QMessageBox.No,
-            )
-            != QMessageBox.Yes
-        ):
+        reply = QMessageBox.question(
+            self,
+            "Eliminar pregunta",
+            "¿Seguro que deseas borrar esta pregunta?",
+            QMessageBox.Yes | QMessageBox.No,
+            QMessageBox.No,
+        )
+        if reply != QMessageBox.Yes:
             return
         with SessionLocal() as s:
             s.query(m.MCQQuestion).filter_by(id=qid).delete()
