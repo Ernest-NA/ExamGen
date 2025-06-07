@@ -141,6 +141,9 @@ class MainWindow(QMainWindow):
     def _create_status_bar(self) -> None:
         sb = QStatusBar(self)
         self.setStatusBar(sb)
+        sb = self.statusBar()
+        # Oculta el borde que QT dibuja en cada item del status-bar
+        sb.setStyleSheet("QStatusBar::item { border: 0px solid transparent; }")
 
     def _refresh_stats(self) -> None:
         with SessionLocal() as s:
