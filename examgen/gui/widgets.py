@@ -3,8 +3,8 @@ from typing import List
 from datetime import datetime
 import random
 
-from PySide6.QtCore import Qt, QTimer
-from PySide6.QtGui import QKeySequence, QShortcut
+from PySide6.QtCore import Qt, QTimer, QSize
+from PySide6.QtGui import QKeySequence, QShortcut, QIcon
 from PySide6.QtWidgets import (
     QButtonGroup,
     QDialog,
@@ -15,6 +15,10 @@ from PySide6.QtWidgets import (
     QCheckBox,
     QTableWidget,
     QTableWidgetItem,
+    QToolButton,
+    QHeaderView,
+    QStyledItemDelegate,
+    QStyleOptionViewItem,
     QVBoxLayout,
     QHBoxLayout,
     QGridLayout,
@@ -33,6 +37,9 @@ from examgen.gui.dialogs import ResultsDialog
 
 from examgen import models as m
 
+MAX_CHARS = 3000
+MIN_ROWS = 4
+
 
 def clear_layout(layout: QVBoxLayout | QHBoxLayout) -> None:
     while layout.count():
@@ -41,40 +48,136 @@ def clear_layout(layout: QVBoxLayout | QHBoxLayout) -> None:
             widget.deleteLater()
 
 
+class WrapAnywhereDelegate(QStyledItemDelegate):
+    """Delegate that wraps text even without spaces."""
+
+    _flags = Qt.TextWordWrap | Qt.TextWrapAnywhere
+
+    def initStyleOption(self, option: QStyleOptionViewItem, index):  # type: ignore[override]
+        super().initStyleOption(option, index)
+        option.textElideMode = Qt.ElideNone
+        option.displayAlignment = Qt.AlignLeft | Qt.AlignVCenter
+
+    def sizeHint(self, option: QStyleOptionViewItem, index):  # type: ignore[override]
+        size = super().sizeHint(option, index)
+        min_h = option.fontMetrics.lineSpacing() + 6
+        size.setHeight(max(size.height(), min_h))
+        return size
+
+    def paint(self, painter, option, index):  # type: ignore[override]
+        self.initStyleOption(option, index)
+        painter.save()
+        painter.drawText(option.rect, self._flags, str(index.data(Qt.DisplayRole) or ""))
+        painter.restore()
+
+
 class OptionTable(QTableWidget):
-    """Table with text column and a checkable 'Correcta' column."""
+    HEADER = ["", "Opción", "Correcta", "Respuesta", "Explicación", ""]
 
-    def __init__(self, rows: int = 4, parent: QDialog | None = None):
-        super().__init__(rows, 2, parent)
-        self.setHorizontalHeaderLabels(["Opción", "Correcta"])
-        self.horizontalHeader().setStretchLastSection(True)
-        self.setColumnWidth(0, 340)
-        self.setColumnWidth(1, 90)
-        self._populate_checkboxes()
+    def __init__(self, parent: QWidget | None = None) -> None:
+        super().__init__(MIN_ROWS, 6, parent)
 
-    def _populate_checkboxes(self) -> None:
-        for row in range(self.rowCount()):
-            chk = QTableWidgetItem()
-            chk.setFlags(Qt.ItemFlag.ItemIsUserCheckable | Qt.ItemFlag.ItemIsEnabled)
-            chk.setCheckState(Qt.CheckState.Unchecked)
-            self.setItem(row, 1, chk)
+        self.setHorizontalHeaderLabels(self.HEADER)
+        hh = self.horizontalHeader()
+        hh.setSectionResizeMode(0, QHeaderView.ResizeToContents)
+        hh.setSectionResizeMode(1, QHeaderView.Stretch)
+        hh.resizeSection(2, 80)
+        hh.setSectionResizeMode(3, QHeaderView.Stretch)
+        hh.setSectionResizeMode(4, QHeaderView.Stretch)
+        hh.resizeSection(5, 40)
+        hh.setStretchLastSection(False)
 
-    def collect_options(self) -> tuple[List[m.AnswerOption], int]:
-        """Return list of AnswerOption and number of correct answers."""
+        self.verticalHeader().setVisible(False)
+        self.verticalHeader().setDefaultSectionSize(self.fontMetrics().lineSpacing() + 6)
+        self.setWordWrap(True)
+
+        wrap = WrapAnywhereDelegate(self)
+        for c in (1, 3, 4):
+            self.setItemDelegateForColumn(c, wrap)
+
+        for r in range(MIN_ROWS):
+            self._init_row(r)
+        self._refresh_delete_buttons()
+        self.resizeRowsToContents()
+
+        self.cellChanged.connect(self._auto_height)
+
+    # ------------ row helpers -----------------
+    def _init_row(self, row: int) -> None:
+        letter = QTableWidgetItem(chr(ord("a") + row))
+        letter.setFlags(Qt.ItemIsEnabled)
+        letter.setTextAlignment(Qt.AlignCenter)
+        self.setItem(row, 0, letter)
+
+        for col in (1, 3, 4):
+            self.setItem(row, col, QTableWidgetItem(""))
+
+        cb = QCheckBox()
+        wrap = QWidget()
+        lay = QHBoxLayout(wrap)
+        lay.setContentsMargins(0, 0, 0, 0)
+        lay.addStretch(1)
+        lay.addWidget(cb)
+        lay.addStretch(1)
+        self.setCellWidget(row, 2, wrap)
+
+        trash = QToolButton()
+        trash.setIcon(QIcon.fromTheme("edit-delete"))
+        trash.setAutoRaise(True)
+        trash.clicked.connect(lambda *_: self._remove_row(row))
+        trash.setFixedSize(QSize(30, 30))
+        self.setCellWidget(row, 5, trash)
+
+    def add_row(self) -> None:
+        r = self.rowCount()
+        self.insertRow(r)
+        self._init_row(r)
+        self._refresh_letters()
+        self._refresh_delete_buttons()
+        self.resizeRowsToContents()
+
+    def _remove_row(self, row: int) -> None:
+        if self.rowCount() > MIN_ROWS:
+            self.removeRow(row)
+            self._refresh_letters()
+            self._refresh_delete_buttons()
+            self.resizeRowsToContents()
+
+    def _refresh_letters(self) -> None:
+        for r in range(self.rowCount()):
+            self.item(r, 0).setText(chr(ord("a") + r))
+
+    def _refresh_delete_buttons(self) -> None:
+        allow = self.rowCount() > MIN_ROWS
+        for r in range(self.rowCount()):
+            btn: QToolButton | None = self.cellWidget(r, 5).findChild(QToolButton)  # type: ignore
+            if btn:
+                btn.setEnabled(allow)
+
+    def _auto_height(self, row: int, _col: int) -> None:
+        self.resizeRowToContents(row)
+
+    # ------------ collect ---------------------
+    def collect(self) -> tuple[List[m.AnswerOption], int]:
         opts: List[m.AnswerOption] = []
         correct = 0
         for r in range(self.rowCount()):
-            txt_item = self.item(r, 0)
-            if not txt_item or not txt_item.text().strip():
+            text = self.item(r, 1).text().strip()
+            if not text:
                 continue
-            chk_item = self.item(r, 1)
-            is_corr = (
-                chk_item.checkState() == Qt.CheckState.Checked if chk_item else False
-            )
+            text = text[:MAX_CHARS]
+            answer = self.item(r, 3).text().strip()[:MAX_CHARS]
+            expl = self.item(r, 4).text().strip()[:MAX_CHARS]
+            is_corr = self.cellWidget(r, 2).findChild(QCheckBox).isChecked()  # type: ignore
             if is_corr:
                 correct += 1
             opts.append(
-                m.AnswerOption(text=txt_item.text().strip(), is_correct=is_corr)
+                m.AnswerOption(
+                    text=text,
+                    answer=answer or None,
+                    explanation=expl or None,
+                    is_correct=is_corr,
+                )
             )
         return opts, correct
 
