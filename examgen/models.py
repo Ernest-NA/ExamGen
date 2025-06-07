@@ -7,6 +7,7 @@ para crear / actualizar examgen.db en la raíz del proyecto.
 """
 
 import datetime as _dt
+from enum import Enum as _Enum
 from pathlib import Path
 from typing import List
 
@@ -19,15 +20,25 @@ from sqlalchemy import (
     JSON,
     String,
     Text,
+    text,
     create_engine,
+    Enum as SQLAEnum,
+    inspect,
 )
+from sqlalchemy.engine import Engine
 from sqlalchemy.orm import (
     DeclarativeBase,
     Mapped,
     mapped_column,
     relationship,
     Session,
+    sessionmaker,
 )
+
+
+class SelectorTypeEnum(str, _Enum):
+    ALEATORIO = "ALEATORIO"
+    ERRORES = "ERRORES"
 
 # -----------------------------------------------------------------------------
 # Declarative base común
@@ -61,8 +72,9 @@ class Subject(Base):
     name: Mapped[str] = mapped_column(String(200), unique=True, nullable=False)
     description: Mapped[str | None] = mapped_column(Text())
 
-    questions:   Mapped[List["Question"]] = relationship(back_populates="subject",   foreign_keys="Question.subject_id")
-    references_: Mapped[List["Question"]] = relationship(back_populates="reference", foreign_keys="Question.reference_id")
+    questions: Mapped[List["Question"]] = relationship(
+        back_populates="subject", foreign_keys="Question.subject_id"
+    )
 
 
 class Question(Base):
@@ -82,11 +94,19 @@ class Question(Base):
     subject:   Mapped[Subject] = relationship(back_populates="questions",  foreign_keys=[subject_id])
     reference: Mapped[str | None] = mapped_column(String(200))
 
+    option_e: Mapped[str | None] = mapped_column(Text())
+    is_e_correct: Mapped[bool] = mapped_column(Boolean, default=False)
+
     options: Mapped[List["AnswerOption"]] = relationship(
         back_populates="question", cascade="all, delete-orphan"
     )
 
     __mapper_args__ = {"polymorphic_on": type, "polymorphic_identity": "BASE"}
+
+    @property
+    def options_dict(self) -> dict[str, "AnswerOption"]:
+        """Return a mapping letter→AnswerOption for quick access."""
+        return {letter: opt for letter, opt in zip("ABCDE", self.options)}
 
 
 class MCQQuestion(Question):
@@ -134,30 +154,72 @@ class Exam(Base):
 class Attempt(Base):
     __tablename__ = "attempt"
 
-    timestamp: Mapped[_dt.datetime] = mapped_column(
+    exam_id: Mapped[int] = mapped_column(ForeignKey("exam.id"), nullable=False)
+    subject: Mapped[str] = mapped_column(String(200), nullable=False)
+    selector_type: Mapped[SelectorTypeEnum] = mapped_column(
+        SQLAEnum(SelectorTypeEnum), nullable=False
+    )
+    num_questions: Mapped[int | None] = mapped_column(Integer)
+    error_threshold: Mapped[int | None] = mapped_column(Integer)
+    time_limit: Mapped[int] = mapped_column(Integer, nullable=False)
+    started_at: Mapped[_dt.datetime] = mapped_column(
         DateTime(timezone=True), default=_dt.datetime.utcnow, nullable=False
     )
-    score: Mapped[float] = mapped_column(Float, default=0.0)
+    ended_at: Mapped[_dt.datetime | None] = mapped_column(DateTime(timezone=True))
+    score: Mapped[int | None] = mapped_column(Integer)
 
-    exam_id: Mapped[int] = mapped_column(ForeignKey("exam.id"), nullable=False)
-    exam:    Mapped[Exam] = relationship(back_populates="attempts")
-
-    answers: Mapped[List["AttemptAnswer"]] = relationship(
+    exam: Mapped["Exam"] = relationship(back_populates="attempts")
+    questions: Mapped[List["AttemptQuestion"]] = relationship(
         back_populates="attempt", cascade="all, delete-orphan"
     )
 
 
-class AttemptAnswer(Base):
-    __tablename__ = "attempt_answer"
+class AttemptQuestion(Base):
+    __tablename__ = "attempt_question"
 
-    attempt_id:         Mapped[int] = mapped_column(ForeignKey("attempt.id"), nullable=False)
-    question_id:        Mapped[int] = mapped_column(ForeignKey("question.id"), nullable=False)
-    selected_option_id: Mapped[int | None] = mapped_column(ForeignKey("answer_option.id"))
-    is_correct:         Mapped[bool] = mapped_column(Boolean, default=False)
+    attempt_id: Mapped[int] = mapped_column(ForeignKey("attempt.id"), nullable=False)
+    question_id: Mapped[int] = mapped_column(ForeignKey("question.id"), nullable=False)
+    selected_option: Mapped[str | None] = mapped_column(String(200))
+    is_correct: Mapped[bool | None] = mapped_column(Boolean)
+    score: Mapped[int | None] = mapped_column(Integer)
 
-    attempt:         Mapped[Attempt]       = relationship(back_populates="answers")
-    question:        Mapped[Question]      = relationship()
-    selected_option: Mapped[AnswerOption | None] = relationship()
+    attempt: Mapped["Attempt"] = relationship(back_populates="questions")
+    question: Mapped[Question] = relationship()
+
+
+def _migrate_attempt_subject_column(engine: Engine) -> None:
+    """Add ``subject`` column to ``attempt`` table if missing."""
+    with engine.begin() as con:
+        cols = {row[1] for row in con.exec_driver_sql("PRAGMA table_info('attempt')")}
+        if "subject" not in cols:
+            con.exec_driver_sql("ALTER TABLE attempt ADD COLUMN subject TEXT")
+
+
+def _add_option_e(engine: Engine) -> None:
+    """Add option_e and is_e_correct columns if missing."""
+    insp = inspect(engine)
+    cols = {c["name"] for c in insp.get_columns("question")}
+    alter = []
+    if "option_e" not in cols:
+        alter.append("ADD COLUMN option_e TEXT")
+    if "is_e_correct" not in cols:
+        alter.append("ADD COLUMN is_e_correct BOOLEAN DEFAULT 0")
+    for stmt in alter:
+        engine.execute(text(f"ALTER TABLE question {stmt}"))
+
+
+def _create_examiner_tables(engine: Engine) -> None:
+    insp = inspect(engine)
+    tables = []
+    if not insp.has_table("attempt"):
+        tables.append(Attempt.__table__)
+    if not insp.has_table("attempt_question"):
+        tables.append(AttemptQuestion.__table__)
+    if tables:
+        Base.metadata.create_all(bind=engine, tables=tables)
+
+    _migrate_attempt_subject_column(engine)
+    _add_option_e(engine)
 
 # -----------------------------------------------------------------------------
 # Utilidades de BD
@@ -167,9 +229,17 @@ def get_engine(db_path: str | Path = "examgen.db"):
     return create_engine(f"sqlite:///{db_path}", echo=False, future=True)
 
 
+engine = get_engine()
+SessionLocal = sessionmaker(
+    bind=engine, expire_on_commit=False, future=True
+)
+
+
 def init_db(db_path: str | Path = "examgen.db") -> None:
     engine = get_engine(db_path)
     Base.metadata.create_all(engine)        # crea tablas que falten
+
+    _create_examiner_tables(engine)
 
     with engine.begin() as con:
         con.exec_driver_sql("PRAGMA foreign_keys = ON")
@@ -195,3 +265,4 @@ def init_db(db_path: str | Path = "examgen.db") -> None:
 
 if __name__ == "__main__":
     init_db()
+    _create_examiner_tables(get_engine())
