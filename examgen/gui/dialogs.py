@@ -75,10 +75,10 @@ class WrapAnywhereDelegate(QStyledItemDelegate):
 # OptionTable
 # ------------------------------------------------------------------
 class OptionTable(QTableWidget):
-    HEADER = ["", "Opción", "Correcta", "Respuesta", "Explicación", ""]
+    HEADER = ["", "Opción", "Correcta", "Explicación", ""]
 
     def __init__(self, parent: QWidget | None = None):
-        super().__init__(MIN_ROWS, 6, parent)
+        super().__init__(MIN_ROWS, 5, parent)
 
         # header setup
         self.setHorizontalHeaderLabels(self.HEADER)
@@ -87,8 +87,7 @@ class OptionTable(QTableWidget):
         hh.setSectionResizeMode(1, QHeaderView.Stretch)
         hh.resizeSection(2, 80)
         hh.setSectionResizeMode(3, QHeaderView.Stretch)
-        hh.setSectionResizeMode(4, QHeaderView.Stretch)
-        hh.resizeSection(5, 40)
+        hh.resizeSection(4, 40)
         hh.setStretchLastSection(False)
 
         self.verticalHeader().setVisible(False)
@@ -98,7 +97,7 @@ class OptionTable(QTableWidget):
         self.setWordWrap(True)
 
         wrap = WrapAnywhereDelegate(self)
-        for c in (1, 3, 4):
+        for c in (1, 3):
             self.setItemDelegateForColumn(c, wrap)
 
         for r in range(MIN_ROWS):
@@ -115,7 +114,7 @@ class OptionTable(QTableWidget):
         letter.setTextAlignment(Qt.AlignCenter)
         self.setItem(row, 0, letter)
 
-        for col in (1, 3, 4):
+        for col in (1, 3):
             self.setItem(row, col, QTableWidgetItem(""))
 
         cb = QCheckBox()
@@ -131,7 +130,7 @@ class OptionTable(QTableWidget):
         trash.setIcon(QIcon.fromTheme("edit-delete"))
         trash.setAutoRaise(True)
         trash.clicked.connect(lambda *_: self._remove_row(row))
-        self.setCellWidget(row, 5, trash)
+        self.setCellWidget(row, 4, trash)
 
     def add_row(self):
         r = self.rowCount()
@@ -155,7 +154,7 @@ class OptionTable(QTableWidget):
     def _refresh_delete_buttons(self):
         allow = self.rowCount() > MIN_ROWS
         for r in range(self.rowCount()):
-            btn: QToolButton | None = self.cellWidget(r, 5).findChild(QToolButton)  # type: ignore
+            btn: QToolButton | None = self.cellWidget(r, 4).findChild(QToolButton)  # type: ignore
             if btn:
                 btn.setEnabled(allow)
 
@@ -171,15 +170,15 @@ class OptionTable(QTableWidget):
             if not text:
                 continue
             text = text[:MAX_CHARS]
-            answer = self.item(r, 3).text().strip()[:MAX_CHARS]
-            expl = self.item(r, 4).text().strip()[:MAX_CHARS]
+            answer = None
+            expl = self.item(r, 3).text().strip()[:MAX_CHARS]
             is_corr = self.cellWidget(r, 2).findChild(QCheckBox).isChecked()  # type: ignore
             if is_corr:
                 correct += 1
             opts.append(
                 m.AnswerOption(
                     text=text,
-                    answer=answer or None,
+                    answer=answer,
                     explanation=expl or None,
                     is_correct=is_corr,
                 )
@@ -418,7 +417,6 @@ class QuestionDialog(QDialog):
             subj_obj = s.query(m.Subject).filter_by(name=subj).first() or m.Subject(
                 name=subj
             )
-            ref_obj = s.query(m.Subject).filter_by(name=ref).first() if ref else None
 
             q = m.MCQQuestion(
                 prompt=prompt_txt,
