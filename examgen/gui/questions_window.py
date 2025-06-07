@@ -20,6 +20,7 @@ from PySide6.QtCore import Qt
 from examgen import models as m
 from examgen.models import SessionLocal
 from examgen.gui.dialogs import QuestionDialog
+from sqlalchemy.orm import selectinload
 
 
 class QuestionsWindow(QWidget):
@@ -102,23 +103,25 @@ class QuestionsWindow(QWidget):
             return
 
         query_text = self.search.text().strip().lower()
+
         with SessionLocal() as s:
-            q = (
+            questions = (
                 s.query(m.MCQQuestion)
+                .options(selectinload(m.MCQQuestion.options))
                 .filter(m.MCQQuestion.subject_id == subj_id)
                 .order_by(m.MCQQuestion.id)
+                .all()
             )
-            rows = q.all()
 
-        if query_text:
-            rows = [
-                r
-                for r in rows
-                if query_text in r.prompt.lower()
-                or any(query_text in o.text.lower() for o in r.options)
-            ]
+            if query_text:
+                questions = [
+                    q
+                    for q in questions
+                    if query_text in q.prompt.lower()
+                    or any(query_text in o.text.lower() for o in q.options)
+                ]
 
-        self._populate_table(rows)
+            self._populate_table(questions)
 
     def _populate_table(self, rows: list[m.MCQQuestion]) -> None:
         self.table.setRowCount(0)
