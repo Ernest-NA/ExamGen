@@ -116,7 +116,7 @@ class ExamDialog(QDialog):
 
         self.lbl_prompt = QLabel(alignment=Qt.AlignJustify)
         self.lbl_prompt.setWordWrap(True)
-        self.lbl_prompt.setContentsMargins(0, 8, 0, 16)
+        self.lbl_prompt.setContentsMargins(0, 4, 0, 16)
         self.lbl_prompt.setSizePolicy(QSizePolicy.Preferred, QSizePolicy.Fixed)
         self.group = QButtonGroup(self)
         self.opts: List[QRadioButton] = []
@@ -134,8 +134,8 @@ class ExamDialog(QDialog):
         nav.addWidget(self.btn_next)
 
         root = QVBoxLayout(self)
-        root.setContentsMargins(12, 12, 12, 12)
-        root.setSpacing(8)
+        root.setContentsMargins(8, 8, 8, 8)
+        root.setSpacing(6)
         root.addLayout(header_grid)
         root.addWidget(self.lbl_prompt)
         root.addWidget(opts_container)
