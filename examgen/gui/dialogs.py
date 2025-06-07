@@ -2,8 +2,9 @@ from __future__ import annotations
 from pathlib import Path
 from typing import List, Optional
 
-from PySide6.QtCore import Qt, QSize
+from PySide6.QtCore import Qt, QSize, QFile, QIODevice
 from PySide6.QtGui import QIcon, QTextOption, QColor
+from PySide6.QtUiTools import QUiLoader
 from PySide6.QtWidgets import QLineEdit
 from PySide6.QtWidgets import (
     QCheckBox,
@@ -195,65 +196,37 @@ class ExamConfigDialog(QDialog):
 
     def __init__(self, parent: QWidget | None = None):
         super().__init__(parent)
-        self.setWindowTitle("Configurar examen")
         self.config: Optional[ExamConfig] = None
 
-        self.cb_subject = QComboBox()
-        self.cb_subject.setEditable(True)
-        self.spin_time = QSpinBox(minimum=1, maximum=999, value=90)
+        ui_file = QFile("examgen/gui/ui/ExamConfigDialog.ui")
+        ui_file.open(QIODevice.ReadOnly)
+        QUiLoader().load(ui_file, self)
+        ui_file.close()
 
-        self.spin_questions = QSpinBox(minimum=1, maximum=999, value=60)
+        # widgets from .ui
+        self.buttons: QDialogButtonBox = self.findChild(QDialogButtonBox, "buttons")
+        self.btn_ok: QPushButton = self.buttons.button(QDialogButtonBox.Ok)
+        self.cb_subject: QComboBox = self.findChild(QComboBox, "cb_subject")
+        self.spin_time: QSpinBox = self.findChild(QSpinBox, "spin_time")
+        self.spin_questions: QSpinBox = self.findChild(QSpinBox, "spin_questions")
+        self.rb_random: QRadioButton = self.findChild(QRadioButton, "rb_random")
+        self.rb_errors: QRadioButton = self.findChild(QRadioButton, "rb_errors")
+        self.lbl_no_subjects: QLabel = self.findChild(QLabel, "lbl_no_subjects")
 
-        # match widths for spin boxes
-        width = self.spin_time.sizeHint().width()
-        self.spin_time.setFixedWidth(width)
-        self.spin_questions.setFixedWidth(width)
-
-        self.rb_random = QRadioButton("Aleatorio")
-        self.rb_errors = QRadioButton("Errores")
         self.group = QButtonGroup(self)
         self.group.addButton(self.rb_random)
         self.group.addButton(self.rb_errors)
 
-        radio_widget = QWidget()
-        hr = QHBoxLayout(radio_widget)
-        hr.setContentsMargins(0, 0, 0, 0)
-        hr.addWidget(self.rb_random)
-        hr.addWidget(self.rb_errors)
-        hr.addStretch(1)
-
-        form = QFormLayout()
-        form.addRow("Materia:", self.cb_subject)
-        form.addRow("Tiempo límite (min):", self.spin_time)
-        form.addRow("Nº preguntas:", self.spin_questions)
-        form.addRow("Selector:", radio_widget)
-
-        self.buttons = QDialogButtonBox(QDialogButtonBox.Ok | QDialogButtonBox.Cancel)
-        self.btn_ok = self.buttons.button(QDialogButtonBox.Ok)
-        self.buttons.accepted.connect(self.accept)
         self.buttons.rejected.connect(self.reject)
 
-        self.lbl_no_subjects = QLabel(
-            "No hay materias disponibles. Importe preguntas primero.",
-            alignment=Qt.AlignCenter,
-        )
-        self.lbl_no_subjects.setStyleSheet("color: gray")
-        self.lbl_no_subjects.hide()
-
-        self._update_ok_state()
-
-        root = QVBoxLayout(self)
-        root.addLayout(form)
-        root.addWidget(self.lbl_no_subjects)
-        root.addWidget(self.buttons)
-
-        self._load_subjects()
-        self._update_selector()
-
+        self.btn_ok.clicked.connect(self._accept)
         self.cb_subject.currentTextChanged.connect(self._update_ok_state)
         self.group.buttonClicked.connect(self._update_ok_state)
         self.spin_questions.valueChanged.connect(self._update_ok_state)
         self.spin_time.valueChanged.connect(self._update_ok_state)
+
+        self._load_subjects()
+        self._update_selector()
 
     # ---------------- helpers -----------------
     def _load_subjects(self) -> None:
@@ -292,6 +265,9 @@ class ExamConfigDialog(QDialog):
 
         ok_enabled = subject_ok and selector_ok and questions_ok and time_ok
         self.btn_ok.setEnabled(ok_enabled)
+
+    def _accept(self) -> None:
+        self.accept()
 
     # ---------------- accept -------------------
     def accept(self) -> None:  # type: ignore[override]
