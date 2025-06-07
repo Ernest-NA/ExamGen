@@ -112,6 +112,9 @@ class MainWindow(QMainWindow):
         new_question_action = QAction("Nueva &pregunta…", self)
         new_question_action.triggered.connect(self._open_question_dialog)
         archivo.addAction(new_question_action)
+        history_action = QAction("Historial", self)
+        history_action.triggered.connect(self._show_history)
+        archivo.addAction(history_action)
         archivo.addSeparator()
         archivo.addAction("Salir", QApplication.instance().quit)
 
@@ -173,6 +176,10 @@ class MainWindow(QMainWindow):
         if QuestionDialog(self, db_path=DB_PATH).exec():
             self._update_subject_count()
             self._update_status()
+
+    def _show_history(self) -> None:
+        from examgen.gui.dialogs import AttemptsHistoryDialog
+        AttemptsHistoryDialog(self).exec()
 
 
 # ------------------------------------------------------------------------- #
