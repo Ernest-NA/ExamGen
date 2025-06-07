@@ -11,6 +11,9 @@ from PySide6.QtWidgets import (
     QTableWidgetItem,
     QHeaderView,
     QMessageBox,
+    QStatusBar,
+    QLabel,
+    QSizePolicy,
 )
 from PySide6.QtCore import Qt
 
@@ -30,8 +33,12 @@ class QuestionsWindow(QWidget):
         self.cb_subject = QComboBox()
         self.cb_subject.currentIndexChanged.connect(self._load_table)
 
-        self.search = QLineEdit(placeholderText="Busca en enunciado u opciones…")
+        self.search = QLineEdit(
+            placeholderText="Busca en enunciado u opciones…"
+        )
         self.search.setEnabled(False)
+        self.search.setMinimumWidth(400)
+        self.search.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
         self.search.textChanged.connect(self._filter_table)
 
         btn_new = QPushButton("Nueva pregunta", clicked=self._new_question)
@@ -61,10 +68,19 @@ class QuestionsWindow(QWidget):
         self.table.setWordWrap(True)
 
         root = QVBoxLayout(self)
+        root.setContentsMargins(0, 0, 0, 0)
+        root.setSpacing(4)
         root.addLayout(top)
         root.addWidget(self.table)
 
+        self.footer = QStatusBar(self)
+        self.lbl_stats = QLabel(self)
+        self.footer.addWidget(self.lbl_stats)
+        self.footer.setStyleSheet("QStatusBar::item { border: 0px; }")
+        root.addWidget(self.footer)
+
         self._load_subjects()
+        self._refresh_stats()
 
     # ---------------- loaders ----------------
     def _load_subjects(self) -> None:
@@ -130,6 +146,12 @@ class QuestionsWindow(QWidget):
 
         self.table.resizeRowsToContents()
 
+    def _refresh_stats(self) -> None:
+        with SessionLocal() as s:
+            num_subj = s.query(m.Subject).count()
+            num_q = s.query(m.MCQQuestion).count()
+        self.lbl_stats.setText(f"Materias: {num_subj}   Preguntas: {num_q}")
+
     def _filter_table(self, _text: str) -> None:
         self._load_table()
 
@@ -138,6 +160,7 @@ class QuestionsWindow(QWidget):
         dlg = QuestionDialog(self)
         if dlg.exec() == dlg.Accepted:
             self._load_table()
+            self._refresh_stats()
 
     def _delete_question(self, qid: int) -> None:
         if (
@@ -154,3 +177,4 @@ class QuestionsWindow(QWidget):
             s.query(m.MCQQuestion).filter_by(id=qid).delete()
             s.commit()
         self._load_table()
+        self._refresh_stats()
