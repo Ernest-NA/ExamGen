@@ -66,6 +66,8 @@ class QuestionsWindow(QWidget):
         self.table.horizontalHeader().setSectionResizeMode(4, QHeaderView.Stretch)
         self.table.verticalHeader().setVisible(False)
         self.table.setWordWrap(True)
+        self.table.setShowGrid(True)
+        self.table.setStyleSheet("QTableView::item { padding: 2px 4px; }")
 
         root = QVBoxLayout(self)
         # Margen izq, sup, der, inf  →  4 px de respiro arriba
@@ -119,32 +121,42 @@ class QuestionsWindow(QWidget):
         self._populate_table(rows)
 
     def _populate_table(self, rows: list[m.MCQQuestion]) -> None:
-        self.table.setRowCount(len(rows))
-        for i, q in enumerate(rows, start=1):
-            nitem = QTableWidgetItem(str(i))
+        self.table.setRowCount(0)
+        cur_row = 0
+        for q_index, q in enumerate(rows, start=1):
+            n_opts = len(q.options) or 1
+
+            for _ in range(n_opts):
+                self.table.insertRow(cur_row)
+
+            nitem = QTableWidgetItem(str(q_index))
             nitem.setFlags(Qt.ItemIsEnabled)
             nitem.setTextAlignment(Qt.AlignCenter)
-            self.table.setItem(i - 1, 0, nitem)
+            self.table.setItem(cur_row, 0, nitem)
+            if n_opts > 1:
+                self.table.setSpan(cur_row, 0, n_opts, 1)
 
             pitem = QTableWidgetItem(q.prompt)
             pitem.setFlags(Qt.ItemIsEnabled)
-            self.table.setItem(i - 1, 1, pitem)
-
-            opts_txt = "\n".join(
-                f"{chr(97 + j)}) {o.text}" for j, o in enumerate(q.options)
-            )
-            corr_txt = "\n".join(o.text for o in q.options if o.is_correct)
-            expl_txt = "\n".join(o.explanation or "" for o in q.options)
-            for col, txt in zip((2, 3, 4), (opts_txt, corr_txt, expl_txt)):
-                item = QTableWidgetItem(txt)
-                item.setFlags(Qt.ItemIsEnabled)
-                self.table.setItem(i - 1, col, item)
+            self.table.setItem(cur_row, 1, pitem)
+            if n_opts > 1:
+                self.table.setSpan(cur_row, 1, n_opts, 1)
 
             btn_del = QPushButton("🗑️")
             btn_del.setFlat(True)
             btn_del.clicked.connect(lambda _, qid=q.id: self._delete_question(qid))
-            self.table.setCellWidget(i - 1, 5, btn_del)
+            self.table.setCellWidget(cur_row, 5, btn_del)
+            if n_opts > 1:
+                self.table.setSpan(cur_row, 5, n_opts, 1)
 
+            for rel_idx, opt in enumerate(q.options):
+                row = cur_row + rel_idx
+                self.table.setItem(row, 2, QTableWidgetItem(f"{chr(97 + rel_idx)}) {opt.text}"))
+                corr_txt = "✔" if opt.is_correct else ""
+                self.table.setItem(row, 3, QTableWidgetItem(corr_txt))
+                self.table.setItem(row, 4, QTableWidgetItem(opt.explanation or ""))
+
+            cur_row += n_opts
         self.table.resizeRowsToContents()
 
     def _refresh_stats(self) -> None:
