@@ -187,7 +187,8 @@ def evaluate_attempt(attempt_id: int) -> Attempt:
             .options(joinedload(Attempt.questions).joinedload(AttemptQuestion.question))
             .filter_by(id=attempt_id)
         )
-        attempt = session.scalars(stmt).one()
+        # .unique() necesario por joined eager-load de colecciones
+        attempt = session.scalars(stmt).unique().one()
 
         total = 0
         for aq in attempt.questions:
