@@ -102,22 +102,43 @@ class ExamDialog(QDialog):
         self.btn_toggle.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Fixed)
 
         header_grid = QGridLayout()
-        header_grid.setColumnStretch(1, 1)
-        header_grid.setHorizontalSpacing(6)
-        header_grid.setVerticalSpacing(4)
         header_grid.setContentsMargins(0, 0, 0, 0)
+        header_grid.setHorizontalSpacing(6)
+        header_grid.setVerticalSpacing(0)
 
-        header_grid.addWidget(self.lbl_subject, 0, 0, Qt.AlignLeft)
-        header_grid.addWidget(self.lbl_progress, 0, 1, Qt.AlignCenter)
-        header_grid.addWidget(self.lbl_timer, 0, 2, Qt.AlignRight)
+        header_grid.addWidget(
+            self.lbl_subject,
+            0,
+            0,
+            1,
+            2,
+            Qt.AlignVCenter | Qt.AlignLeft,
+        )
+        header_grid.addWidget(
+            self.lbl_progress,
+            0,
+            2,
+            Qt.AlignVCenter | Qt.AlignCenter,
+        )
+        header_grid.addWidget(
+            self.lbl_timer,
+            0,
+            3,
+            Qt.AlignVCenter | Qt.AlignRight,
+        )
 
         header_grid.addWidget(self.btn_pause, 1, 0, Qt.AlignLeft)
-        header_grid.addWidget(self.btn_toggle, 1, 2, Qt.AlignRight)
+        header_grid.addWidget(self.btn_toggle, 1, 3, Qt.AlignRight)
+
+        header_grid.setColumnStretch(2, 1)
 
         self.lbl_prompt = QLabel(alignment=Qt.AlignJustify)
         self.lbl_prompt.setWordWrap(True)
-        self.lbl_prompt.setContentsMargins(0, 4, 0, 16)
-        self.lbl_prompt.setSizePolicy(QSizePolicy.Preferred, QSizePolicy.Fixed)
+        self.lbl_prompt.setContentsMargins(0, 4, 0, 12)
+        self.lbl_prompt.setSizePolicy(
+            QSizePolicy.Expanding,
+            QSizePolicy.Minimum,
+        )
         self.group = QButtonGroup(self)
         self.opts: List[QRadioButton] = []
 
@@ -134,9 +155,9 @@ class ExamDialog(QDialog):
         nav.addWidget(self.btn_next)
 
         root = QVBoxLayout(self)
-        root.setContentsMargins(8, 8, 8, 8)
-        root.setSpacing(6)
-        root.addLayout(header_grid)
+        root.setContentsMargins(8, 4, 8, 8)
+        root.setSpacing(4)
+        root.insertLayout(0, header_grid)
         root.addWidget(self.lbl_prompt)
         root.addWidget(opts_container)
         root.addLayout(nav)
