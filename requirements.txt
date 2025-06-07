@@ -1,10 +1,10 @@
-Django>=3.2,<4.0
-djangorestframework>=3.12.4
-drf-yasg>=1.20.0
-django-cors-headers>=3.7.0
-python-dotenv>=0.19.0
-pyside6>=6.6,<6.8
-pyside6-tools>=6.6,<6.8
+Django>=4.2,<4.3
+djangorestframework>=3.15
+drf-yasg>=1.21
+django-cors-headers>=4.3
+python-dotenv>=1.0
+pyside6>=6.8.3,<6.10
+qt6-tools>=6.5,<6.10
 sqlalchemy>=2.0
 pandas>=2.2
 matplotlib>=3.8
