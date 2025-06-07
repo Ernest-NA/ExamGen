@@ -37,9 +37,8 @@ from examgen.services.exam_service import (
     ExamConfig,
     SelectorTypeEnum,
     Attempt,
-    evaluate_attempt,
 )
-from sqlalchemy.orm import selectinload
+from sqlalchemy.orm import selectinload, joinedload
 
 DB_PATH = Path("examgen.db")
 MAX_CHARS = 3000
@@ -438,8 +437,7 @@ class ResultsDialog(QDialog):
     """Show exam results with per-question breakdown."""
 
     def __init__(self, attempt: Attempt, parent: QWidget | None = None) -> None:
-        if attempt.ended_at is None:
-            attempt = evaluate_attempt(attempt.id)
+        # 'attempt' viene ya evaluado y con sesión viva
         super().__init__(parent)
         self.attempt = attempt
 
@@ -514,8 +512,29 @@ class ResultsDialog(QDialog):
 
     @classmethod
     def show_for_attempt(cls, attempt: Attempt, parent: QWidget | None = None) -> None:
-        dlg = cls(attempt, parent)
+        session = SessionLocal()
+        attempt_db = (
+            session.query(Attempt)
+            .options(
+                selectinload(Attempt.questions)
+                .joinedload(m.AttemptQuestion.question)
+                .joinedload(m.MCQQuestion.options)
+            )
+            .get(attempt.id)
+        )
+        if attempt_db is None:
+            QMessageBox.critical(parent, "Error", "Intento no encontrado en BD")
+            session.close()
+            return
+
+        dlg = cls(attempt_db, parent)
+        dlg._session = session
         dlg.exec()
+
+    def reject(self) -> None:  # type: ignore[override]
+        if hasattr(self, "_session"):
+            self._session.close()
+        super().reject()
 
 
 class AttemptsHistoryDialog(QDialog):
