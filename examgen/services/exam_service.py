@@ -210,11 +210,7 @@ def evaluate_attempt(attempt_id: int) -> m.Attempt:
     with SessionLocal() as s:
         attempt = (
             s.query(m.Attempt)
-            .options(
-                selectinload(m.Attempt.questions)
-                .selectinload(m.AttemptQuestion.question)
-                .selectinload(m.MCQQuestion.options)
-            )
+            .options(selectinload(m.Attempt.questions))
             .get(attempt_id)
         )
         if not attempt:
