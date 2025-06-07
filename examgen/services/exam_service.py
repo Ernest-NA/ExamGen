@@ -6,7 +6,9 @@ from typing import List
 import random
 
 from sqlalchemy import select, func
-from sqlalchemy.orm import Session, selectinload
+from sqlalchemy.orm import Session, selectinload, with_polymorphic
+
+from examgen import models as m
 
 from examgen.models import (
     SessionLocal,
@@ -183,10 +185,13 @@ def evaluate_attempt(attempt_id: int) -> Attempt:
     """Evaluate an attempt and store the score."""
     with SessionLocal() as session:
         session.expire_on_commit = False
+        q_poly = with_polymorphic(m.Question, "*")
         stmt = (
             select(Attempt)
             .options(
-                selectinload(Attempt.questions).selectinload(AttemptQuestion.question)
+                selectinload(Attempt.questions)
+                .selectinload(AttemptQuestion.question.of_type(q_poly))
+                .selectinload(q_poly.MCQQuestion.options)
             )
             .filter_by(id=attempt_id)
         )
