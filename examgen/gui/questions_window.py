@@ -68,7 +68,8 @@ class QuestionsWindow(QWidget):
         self.table.setWordWrap(True)
 
         root = QVBoxLayout(self)
-        root.setContentsMargins(0, 0, 0, 0)
+        # Margen izq, sup, der, inf  →  4 px de respiro arriba
+        root.setContentsMargins(4, 6, 4, 0)
         root.setSpacing(4)
         root.addLayout(top)
         root.addWidget(self.table)
