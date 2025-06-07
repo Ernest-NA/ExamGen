@@ -166,12 +166,14 @@ def create_attempt(config: ExamConfig) -> Attempt:
 
         session.commit()
 
+        q_poly = with_polymorphic(m.Question, "*")
+
         attempt = (
             session.query(Attempt)
             .options(
                 selectinload(Attempt.questions)
-                .selectinload(AttemptQuestion.question)
-                .selectinload(Question.options)
+                .selectinload(AttemptQuestion.question.of_type(q_poly))
+                .selectinload(q_poly.MCQQuestion.options)
             )
             .filter_by(id=attempt.id)
             .one()
