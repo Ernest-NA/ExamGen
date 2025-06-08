@@ -189,7 +189,7 @@ class QuestionsWindow(QDialog):
     # ---------------- actions ----------------
     def _new_question(self) -> None:
         dlg = QuestionDialog(self)
-        if dlg.exec() == dlg.Accepted:
+        if dlg.exec() == QDialog.Accepted:
             self._load_table()
             self._refresh_stats()
 
