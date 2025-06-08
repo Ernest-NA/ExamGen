@@ -11,11 +11,11 @@ def run() -> None:
     """Fix attempt_question FK pointing to attempt.id."""
     db_path = Path(AppSettings.load().data_db_path or Path.home() / "Documents" / "examgen.db")
     eng = create_engine(f"sqlite:///{db_path}", future=True)
-    meta = MetaData(bind=eng)
-    meta.reflect()
+    meta = MetaData()
+    meta.reflect(bind=eng)
 
     if "attempt_question" not in meta.tables:
-        print("Tabla attempt_question no existe; nada que hacer.")
+        print("Tabla 'attempt_question' no existe; nada que migrar.")
         return
 
     aq_old = meta.tables["attempt_question"]
@@ -55,7 +55,7 @@ def run() -> None:
             Column("created_at", String),
             Column("updated_at", String),
         )
-        meta2.create_all(bind=conn)
+        meta2.create_all(conn)
 
         conn.exec_driver_sql(
             """
