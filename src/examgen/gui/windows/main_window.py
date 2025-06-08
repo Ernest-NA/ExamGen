@@ -48,6 +48,7 @@ from PySide6.QtWidgets import (
     QStatusBar,
     QMessageBox,
     QWidget,
+    QDialog,
 )
 
 from examgen.core import models as m
@@ -130,7 +131,7 @@ class MainWindow(QMainWindow):
         from examgen.gui.dialogs.settings_dialog import SettingsDialog
 
         dlg = SettingsDialog(self.settings, self)
-        if dlg.exec() == dlg.Accepted:
+        if dlg.exec() == QDialog.Accepted:
             self._set_app_actions_enabled(bool(self.settings.data_db_path))
 
     def _set_app_actions_enabled(self, enabled: bool) -> None:

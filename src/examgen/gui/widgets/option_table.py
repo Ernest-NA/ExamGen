@@ -439,7 +439,7 @@ if __name__ == "__main__":  # pragma: no cover
 
     app = QApplication(sys.argv)
     dlg = ExamConfigDialog()
-    if dlg.exec() == dlg.Accepted and dlg.config:
+    if dlg.exec() == QDialog.Accepted and dlg.config:
         start_exam(dlg.config)
         print("Botón Pausar disponible")
         sys.exit(app.exec())

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, asdict
+import dataclasses
 import json
 import sys
 from pathlib import Path
@@ -19,10 +20,19 @@ class AppSettings:
     @classmethod
     def load(cls) -> "AppSettings":
         if SETTINGS_PATH.exists():
-            with SETTINGS_PATH.open("r", encoding="utf-8") as f:
+            with SETTINGS_PATH.open(encoding="utf-8") as f:
                 data = json.load(f)
-            allowed = {k: data[k] for k in ("theme", "data_db_path") if k in data}
-            return cls(**allowed)
+
+            # --- compatibilidad con versiones anteriores ---
+            if "data_db_path" not in data and "data_dir" in data:
+                data["data_db_path"] = str(Path(data["data_dir"]) / "examgen.db")
+
+            # descartar claves desconocidas
+            valid = {f.name for f in dataclasses.fields(cls)}
+            clean = {k: v for k, v in data.items() if k in valid}
+
+            return cls(**clean)
+
         return cls()
 
     def save(self) -> None:
