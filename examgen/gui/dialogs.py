@@ -544,13 +544,38 @@ class AttemptsHistoryDialog(QDialog):
         super().__init__(parent)
         self.setWindowTitle("Historial de pruebas")
 
-        cols = ["Materia", "Inicio", "Duración", "Preguntas", "Correctas", "%"]
+        cols = [
+            "Materia",
+            "Inicio",
+            "Duración",
+            "Preguntas",
+            "Correctas",
+            "%",
+            "",
+        ]
         self.table = QTableWidget(0, len(cols), self)
         self.table.setHorizontalHeaderLabels(cols)
-        self.table.horizontalHeader().setStretchLastSection(True)
+        self.table.horizontalHeader().setStretchLastSection(False)
         self.table.verticalHeader().setVisible(False)
 
         self._session = SessionLocal()
+
+        self.btn_clear = QPushButton("Borrar todo")
+        self.btn_close = QPushButton("Cerrar")
+        self.btn_clear.clicked.connect(self._clear_all)
+        self.btn_close.clicked.connect(self.reject)
+
+        root = QVBoxLayout(self)
+        root.addWidget(self.table)
+        footer = QHBoxLayout()
+        footer.addStretch(1)
+        footer.addWidget(self.btn_clear)
+        footer.addWidget(self.btn_close)
+        root.addLayout(footer)
+
+        self._reload_table()
+
+    def _reload_table(self) -> None:
         attempts = (
             self._session.query(m.Attempt)
             .options(selectinload(m.Attempt.questions))
@@ -576,18 +601,62 @@ class AttemptsHistoryDialog(QDialog):
             for col, val in enumerate(vals):
                 item = QTableWidgetItem(val)
                 item.setFlags(Qt.ItemIsEnabled)
-                if col >= 3:
-                    item.setTextAlignment(Qt.AlignRight | Qt.AlignVCenter)
+                if col == 0:
+                    item.setTextAlignment(Qt.AlignLeft | Qt.AlignVCenter)
+                else:
+                    item.setTextAlignment(Qt.AlignCenter)
                 self.table.setItem(row, col, item)
 
-        buttons = QDialogButtonBox(QDialogButtonBox.Close)
-        buttons.rejected.connect(self.reject)
+            del_btn = QToolButton(text="🗑️")
+            del_btn.setFlat(True)
+            del_btn.setCursor(Qt.PointingHandCursor)
+            del_btn.clicked.connect(lambda _, aid=at.id: self._delete_attempt(aid))
+            self.table.setCellWidget(row, 6, del_btn)
 
-        root = QVBoxLayout(self)
-        root.addWidget(self.table)
-        root.addWidget(buttons, alignment=Qt.AlignCenter)
+        for c in range(self.table.columnCount()):
+            self.table.resizeColumnToContents(c)
+            w_head = self.table.horizontalHeader().sectionSizeHint(c)
+            w_cells = max(self.table.sizeHintForColumn(c), w_head)
+            self.table.setColumnWidth(c, w_cells + 12)
 
-        self.resize(900, 500)
+        total_w = sum(self.table.columnWidth(c) for c in range(self.table.columnCount()))
+        total_w += self.table.verticalHeader().width() + 40
+        self.table.setMinimumWidth(total_w)
+        self.resize(total_w, self.height())
+
+    def _delete_attempt(self, aid: int) -> None:
+        if (
+            QMessageBox.question(
+                self,
+                "Borrar examen",
+                "¿Seguro que deseas borrar este examen?",
+                QMessageBox.Yes | QMessageBox.No,
+                QMessageBox.No,
+            )
+            != QMessageBox.Yes
+        ):
+            return
+        with SessionLocal() as s:
+            s.query(m.Attempt).filter_by(id=aid).delete()
+            s.commit()
+        self._reload_table()
+
+    def _clear_all(self) -> None:
+        if (
+            QMessageBox.question(
+                self,
+                "Borrar historial",
+                "¿Seguro que deseas borrar todo el historial?",
+                QMessageBox.Yes | QMessageBox.No,
+                QMessageBox.No,
+            )
+            != QMessageBox.Yes
+        ):
+            return
+        with SessionLocal() as s:
+            s.query(m.Attempt).delete()
+            s.commit()
+        self._reload_table()
 
     def reject(self) -> None:  # type: ignore[override]
         if hasattr(self, "_session"):
