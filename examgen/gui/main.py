@@ -62,6 +62,9 @@ class MainWindow(QMainWindow):
         self.setWindowTitle("ExamGen")
         self.resize(1280, 720)
 
+        # Referencia opcional a la ventana de preguntas
+        self._questions_win: "QuestionsWindow | None" = None
+
         # Tema actual
         self.current_theme = THEME
         self._apply_theme()
@@ -176,10 +179,20 @@ class MainWindow(QMainWindow):
             self._refresh_stats()
 
     def _show_questions(self) -> None:
+        from PySide6.QtCore import Qt
         from examgen.gui.questions_window import QuestionsWindow
 
-        win = QuestionsWindow()
-        win.show()
+        # Si aún no hay ventana o fue destruida, crea una nueva
+        if self._questions_win is None:
+            self._questions_win = QuestionsWindow()
+            self._questions_win.destroyed.connect(
+                lambda _: setattr(self, "_questions_win", None)
+            )
+
+        # Mostrar y activar la ventana existente
+        self._questions_win.show()
+        self._questions_win.raise_()
+        self._questions_win.activateWindow()
 
     def _show_history(self) -> None:
         from examgen.gui.dialogs import AttemptsHistoryDialog
