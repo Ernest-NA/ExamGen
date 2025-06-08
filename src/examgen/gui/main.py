@@ -14,7 +14,7 @@ from dotenv import load_dotenv
 import logging
 import os
 
-env_path = Path(__file__).resolve().parents[2] / ".env"
+env_path = Path(__file__).resolve().parents[3] / ".env"
 load_dotenv(env_path)
 
 DB_PATH = Path(os.getenv("EXAMGEN_DB", "examgen.db"))  # ruta BD
