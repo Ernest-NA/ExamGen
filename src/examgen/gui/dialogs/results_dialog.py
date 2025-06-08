@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-from typing import Optional
 
 from PySide6.QtCore import Qt
 from PySide6.QtGui import QColor
@@ -15,11 +14,11 @@ from PySide6.QtWidgets import (
     QMessageBox,
 )
 
-from sqlalchemy.orm import selectinload, joinedload
+from sqlalchemy.orm import selectinload
 
 from examgen.core import models as m
 from examgen.core.database import SessionLocal
-from examgen.core.services.exam_service import Attempt
+from examgen.core.models import Attempt
 
 
 class ResultsDialog(QDialog):
