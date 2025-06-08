@@ -141,7 +141,7 @@ def create_attempt(config: ExamConfig) -> m.Attempt:
                 raise ValueError(f'No hay preguntas para la materia "{config.subject}"')
 
         attempt = m.Attempt(
-            exam_id=config.exam_id,
+            exam_id=config.exam_id or None,
             subject=config.subject,
             selector_type=config.selector_type,
             num_questions=config.num_questions,
