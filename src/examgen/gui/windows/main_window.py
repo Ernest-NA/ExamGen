@@ -38,15 +38,14 @@ except Exception:
 if set_theme:
     set_theme(THEME)
 
-from PySide6.QtCore import Qt, QStandardPaths
-from PySide6.QtGui import QAction, QFont, QKeySequence
+from PySide6.QtCore import Qt
+from PySide6.QtGui import QAction, QFont
 from PySide6.QtWidgets import (
     QApplication,
     QLabel,
     QMainWindow,
     QMenuBar,
     QStatusBar,
-    QFileDialog,
     QMessageBox,
     QWidget,
 )
@@ -90,18 +89,15 @@ class MainWindow(QMainWindow):
         mb = QMenuBar(self)
         self.setMenuBar(mb)
 
-        # --- Configuración ------------------------------------------------ #
-        menu_cfg = mb.addMenu("Configuración")
+        # --- Archivo ------------------------------------------------------ #
+        menu_file = mb.addMenu("Archivo")
 
-        act_theme = QAction("Tema…", self, triggered=self._choose_theme)
+        act_settings = QAction("Configuración…", self, triggered=self._open_settings)
         act_exit = QAction("Salir", self, triggered=self.close)
-        act_data_folder = QAction("Elegir base de datos…", self)
-        act_data_folder.triggered.connect(self._choose_data_file)
 
-        menu_cfg.insertAction(act_theme, act_data_folder)
-        menu_cfg.addAction(act_theme)
-        menu_cfg.addSeparator()
-        menu_cfg.addAction(act_exit)
+        menu_file.addAction(act_settings)
+        menu_file.addSeparator()
+        menu_file.addAction(act_exit)
 
         # --- Aplicación --------------------------------------------------- #
         self.menu_app = mb.addMenu("Aplicación")
@@ -130,47 +126,12 @@ class MainWindow(QMainWindow):
                     f'No hay preguntas para la materia "{cfg.subject}"',
                 )
 
-    def _choose_theme(self) -> None:
-        self.settings.theme = "light" if self.settings.theme == "dark" else "dark"
-        self.settings.save()
-        QMessageBox.information(
-            self,
-            "Tema aplicado",
-            f"Tema cambiado a {self.settings.theme}. Reinicia la app para ver cambios.",
-        )
+    def _open_settings(self) -> None:
+        from examgen.gui.dialogs.settings_dialog import SettingsDialog
 
-    def _choose_data_file(self) -> None:
-        start_dir = (
-            Path(self.settings.data_db_path).parent
-            if self.settings.data_db_path and Path(self.settings.data_db_path).exists()
-            else Path(QStandardPaths.writableLocation(QStandardPaths.DocumentsLocation))
-        )
-        file, _ = QFileDialog.getSaveFileName(
-            self,
-            "Seleccionar base de datos",
-            str(start_dir / "examgen.db"),
-            "SQLite DB (*.db);;Todos los archivos (*)",
-        )
-        if not file:
-            return
-        p = Path(file)
-        try:
-            eng = get_engine(p)
-            init_db(eng)
-            self.settings.data_db_path = str(p)
-            self.settings.save()
-            self._set_app_actions_enabled(True)
-            QMessageBox.information(
-                self,
-                "Base de datos",
-                f"Se utilizará {p}. Reinicia la aplicación para aplicar completamente.",
-            )
-        except Exception as exc:
-            QMessageBox.critical(
-                self,
-                "Error",
-                f"No se pudo usar la base de datos seleccionada:\n{exc}",
-            )
+        dlg = SettingsDialog(self.settings, self)
+        if dlg.exec() == dlg.Accepted:
+            self._set_app_actions_enabled(bool(self.settings.data_db_path))
 
     def _set_app_actions_enabled(self, enabled: bool) -> None:
         for act in (self.act_exam, self.act_questions, self.act_history):
@@ -181,8 +142,7 @@ class MainWindow(QMainWindow):
             QMessageBox.warning(
                 self,
                 "Base de datos no seleccionada",
-                "Debes elegir una base de datos antes de usar estas funciones "
-                "en Configuraci\u00f3n \u25ba Elegir base de datos\u2026",
+                "Primero selecciona una base de datos en Archivo \u25ba Configuraci\u00f3n.",
             )
             self.menu_app.hideTearOffMenu()
 

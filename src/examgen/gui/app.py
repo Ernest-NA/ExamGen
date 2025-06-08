@@ -14,7 +14,8 @@ st = AppSettings.load()
 db_path = Path(st.data_db_path or Path.home() / "Documents" / "examgen.db")
 db_path.parent.mkdir(parents=True, exist_ok=True)
 engine = get_engine(db_path)
-init_db(engine)
+if db_path.exists() or st.data_db_path is None:
+    init_db(engine)
 
 
 def main() -> None:
