@@ -47,8 +47,8 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
-from examgen import models as m
-from examgen.gui.dialogs import QuestionDialog
+from examgen.core import models as m
+from examgen.gui.dialogs.question_dialog import QuestionDialog
 from examgen.gui.style import Style
 from examgen.ui.styles import apply_app_styles, BUTTON_STYLE
 
@@ -90,8 +90,8 @@ class MainWindow(QMainWindow):
         window = self
 
         def _do_exam() -> None:
-            from examgen.gui.dialogs import ExamConfigDialog
-            from examgen.gui.widgets import start_exam
+            from examgen.gui.dialogs.question_dialog import ExamConfigDialog
+            from examgen.gui.widgets.option_table import start_exam
 
             cfg = ExamConfigDialog.get_config(window)
             if cfg:
@@ -168,7 +168,7 @@ class MainWindow(QMainWindow):
 
     def _show_questions(self) -> None:
         from PySide6.QtCore import Qt
-        from examgen.gui.questions_window import QuestionsWindow
+        from examgen.gui.windows.questions_window import QuestionsWindow
 
         # Si aún no hay ventana o fue destruida, crea una nueva
         if self._questions_win is None:
@@ -183,7 +183,7 @@ class MainWindow(QMainWindow):
         self._questions_win.activateWindow()
 
     def _show_history(self) -> None:
-        from examgen.gui.dialogs import AttemptsHistoryDialog
+        from examgen.gui.dialogs.history_dialog import AttemptsHistoryDialog
 
         AttemptsHistoryDialog(self).exec()
 

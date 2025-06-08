@@ -1,5 +1,5 @@
 import csv, json
-from examgen import models as m
+from examgen.core import models as m
 
 def import_csv(path: str, db_path: str = "examgen.db") -> None:
     engine = m.get_engine(db_path)

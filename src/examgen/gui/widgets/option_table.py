@@ -23,15 +23,15 @@ from PySide6.QtWidgets import (
     QAbstractButton,
 )
 
-from examgen.models import Attempt, AttemptQuestion, SessionLocal
-from examgen.services.exam_service import (
+from examgen.core.models import Attempt, AttemptQuestion, SessionLocal
+from examgen.core.services.exam_service import (
     ExamConfig,
     create_attempt,
     evaluate_attempt,
 )
-from examgen.gui.dialogs import ResultsDialog
+from examgen.gui.dialogs.results_dialog import ResultsDialog
 
-from examgen import models as m
+from examgen.core import models as m
 
 
 def clear_layout(layout: QVBoxLayout | QHBoxLayout) -> None:
@@ -411,7 +411,7 @@ class ExamDialog(QDialog):
         self._save_selection()
         self.attempt.ended_at = datetime.utcnow()
 
-        from examgen.models import SessionLocal
+        from examgen.core.models import SessionLocal
         with SessionLocal() as s:
             s.merge(self.attempt)
             s.commit()
@@ -435,7 +435,7 @@ def start_exam(config: ExamConfig, parent: QWidget | None = None) -> bool:
 if __name__ == "__main__":  # pragma: no cover
     import sys
     from PySide6.QtWidgets import QApplication
-    from examgen.gui.dialogs import ExamConfigDialog
+    from examgen.gui.dialogs.question_dialog import ExamConfigDialog
 
     app = QApplication(sys.argv)
     dlg = ExamConfigDialog()
