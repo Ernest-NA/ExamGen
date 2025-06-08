@@ -1,9 +1,8 @@
-"""
-examgen/gui/main.py – Ventana principal de ExamGen con selector de tema.
+"""Ventana principal de ExamGen.
 
-• El tema *Oscuro* se aplica al arrancar.
-• Menú “Tema” permite cambiar entre Claro y Oscuro en caliente.
-• Menú “Archivo” incluye “Preguntas…”.
+Carga el tema guardado en ``settings.json`` y ofrece menús:
+* **Configuración** – Tema… y Salir.
+* **Aplicación** – Hacer examen…, Preguntas e Historial.
 """
 
 from __future__ import annotations
@@ -19,7 +18,11 @@ load_dotenv(env_path)
 
 DB_PATH = Path(os.getenv("EXAMGEN_DB", "examgen.db"))  # ruta BD
 LOG_LEVEL = os.getenv("LOG_LEVEL", "WARNING").upper()
-THEME = os.getenv("EXAMGEN_THEME", "Oscuro")
+from examgen.core.settings import AppSettings
+
+settings = AppSettings.load()
+THEME_MAP = {"dark": "Oscuro", "light": "Claro"}
+THEME = THEME_MAP.get(settings.theme, "Oscuro")
 
 logging.basicConfig(level=getattr(logging, LOG_LEVEL, logging.WARNING))
 if LOG_LEVEL == "DEBUG":
@@ -35,12 +38,11 @@ if set_theme:
     set_theme(THEME)
 
 from PySide6.QtCore import Qt
-from PySide6.QtGui import QAction, QActionGroup, QFont, QKeySequence
+from PySide6.QtGui import QAction, QFont, QKeySequence
 from PySide6.QtWidgets import (
     QApplication,
     QLabel,
     QMainWindow,
-    QMenu,
     QMenuBar,
     QStatusBar,
     QMessageBox,
@@ -64,7 +66,8 @@ class MainWindow(QMainWindow):
         # Referencia opcional a la ventana de preguntas
         self._questions_win: "QuestionsWindow | None" = None
 
-        # Tema actual
+        # Settings y tema actual
+        self.settings = settings
         self.current_theme = THEME
         self._apply_theme()
 
@@ -84,54 +87,49 @@ class MainWindow(QMainWindow):
         mb = QMenuBar(self)
         self.setMenuBar(mb)
 
-        # --- Archivo ------------------------------------------------------ #
-        archivo: QMenu = mb.addMenu("&Archivo")
+        # --- Configuración ------------------------------------------------ #
+        menu_cfg = mb.addMenu("Configuración")
 
-        window = self
+        act_theme = QAction("Tema…", self, triggered=self._choose_theme)
+        act_exit = QAction("Salir", self, triggered=self.close)
 
-        def _do_exam() -> None:
-            from examgen.gui.dialogs.question_dialog import ExamConfigDialog
-            from examgen.gui.widgets.option_table import start_exam
+        menu_cfg.addAction(act_theme)
+        menu_cfg.addSeparator()
+        menu_cfg.addAction(act_exit)
 
-            cfg = ExamConfigDialog.get_config(window)
-            if cfg:
-                try:
-                    if start_exam(cfg, parent=window):
-                        print("Examen completado")
-                except ValueError:
-                    QMessageBox.warning(
-                        window,
-                        "No hay preguntas",
-                        f'No hay preguntas para la materia "{cfg.subject}"',
-                    )
+        # --- Aplicación --------------------------------------------------- #
+        menu_app = mb.addMenu("Aplicación")
 
-        exam_action = QAction("Hacer examen…", self)
-        exam_action.setShortcut(QKeySequence("Ctrl+E"))
-        exam_action.triggered.connect(_do_exam)
-        archivo.addAction(exam_action)
+        act_exam = QAction("Hacer examen…", self, triggered=self._start_exam)
+        act_questions = QAction("Preguntas", self, triggered=self._show_questions)
+        act_history = QAction("Historial", self, triggered=self._show_history)
 
-        act_questions = QAction("Preguntas", self)
-        act_questions.triggered.connect(self._show_questions)
-        archivo.addAction(act_questions)
-        history_action = QAction("Historial", self)
-        history_action.triggered.connect(self._show_history)
-        archivo.addAction(history_action)
-        archivo.addSeparator()
-        archivo.addAction("Salir", QApplication.instance().quit)
+        menu_app.addActions([act_exam, act_questions, act_history])
 
-        # --- Examen ------------------------------------------------------- #
-        # Eliminado. Acción "Hacer examen..." movida al menú Archivo.
+    def _start_exam(self) -> None:
+        from examgen.gui.dialogs.question_dialog import ExamConfigDialog
+        from examgen.gui.widgets.option_table import start_exam
 
-        # --- Tema --------------------------------------------------------- #
-        tema: QMenu = mb.addMenu("&Tema")
-        group = QActionGroup(self, exclusive=True)
+        cfg = ExamConfigDialog.get_config(self)
+        if cfg:
+            try:
+                if start_exam(cfg, parent=self):
+                    print("Examen completado")
+            except ValueError:
+                QMessageBox.warning(
+                    self,
+                    "No hay preguntas",
+                    f'No hay preguntas para la materia "{cfg.subject}"',
+                )
 
-        for name in ("Claro", "Oscuro"):
-            act = QAction(name, self, checkable=True)
-            act.setChecked(name == self.current_theme)
-            act.triggered.connect(lambda _=False, n=name: self._switch_theme(n))
-            group.addAction(act)
-            tema.addAction(act)
+    def _choose_theme(self) -> None:
+        self.settings.theme = "light" if self.settings.theme == "dark" else "dark"
+        self.settings.save()
+        QMessageBox.information(
+            self,
+            "Tema aplicado",
+            f"Tema cambiado a {self.settings.theme}. Reinicia la app para ver cambios.",
+        )
 
     # --------------------------------------------------------------------- #
     #  Barra de estado                                                      #
@@ -151,14 +149,6 @@ class MainWindow(QMainWindow):
         if app is not None:
             app.setStyleSheet(Style.sheet(self.current_theme) + BUTTON_STYLE)
 
-    def _switch_theme(self, target: str) -> None:
-        if target != self.current_theme:
-            self.current_theme = target
-            self._apply_theme()
-            # Actualizar checks del menú
-            for act in self.menuBar().findChildren(QAction):
-                if act.text() in ("Claro", "Oscuro"):
-                    act.setChecked(act.text() == self.current_theme)
 
     # --------------------------------------------------------------------- #
     #  Diálogo de pregunta                                                  #
