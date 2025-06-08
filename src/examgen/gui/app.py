@@ -11,10 +11,9 @@ from examgen.core.settings import AppSettings
 
 
 st = AppSettings.load()
-data_root = Path(st.data_dir or ".")
-data_root.mkdir(parents=True, exist_ok=True)
-DB_PATH = data_root / "examgen.db"
-engine = get_engine(DB_PATH)
+db_path = Path(st.data_db_path or Path.home() / "Documents" / "examgen.db")
+db_path.parent.mkdir(parents=True, exist_ok=True)
+engine = get_engine(db_path)
 init_db(engine)
 
 

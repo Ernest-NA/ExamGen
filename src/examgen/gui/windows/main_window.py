@@ -20,8 +20,7 @@ from examgen.core.settings import AppSettings
 from examgen.core.database import get_engine, init_db
 
 settings = AppSettings.load()
-DATA_ROOT = Path(settings.data_dir or ".")
-DB_PATH = DATA_ROOT / "examgen.db"
+DB_PATH = Path(settings.data_db_path or Path.home() / "Documents" / "examgen.db")
 LOG_LEVEL = os.getenv("LOG_LEVEL", "WARNING").upper()
 THEME_MAP = {"dark": "Oscuro", "light": "Claro"}
 THEME = THEME_MAP.get(settings.theme, "Oscuro")
@@ -39,7 +38,7 @@ except Exception:
 if set_theme:
     set_theme(THEME)
 
-from PySide6.QtCore import Qt
+from PySide6.QtCore import Qt, QStandardPaths
 from PySide6.QtGui import QAction, QFont, QKeySequence
 from PySide6.QtWidgets import (
     QApplication,
@@ -82,6 +81,7 @@ class MainWindow(QMainWindow):
         # Menú y barra de estado
         self._create_menu_bar()
         self._create_status_bar()
+        self._set_app_actions_enabled(bool(self.settings.data_db_path))
 
     # --------------------------------------------------------------------- #
     #  Menú                                                                  #
@@ -95,8 +95,8 @@ class MainWindow(QMainWindow):
 
         act_theme = QAction("Tema…", self, triggered=self._choose_theme)
         act_exit = QAction("Salir", self, triggered=self.close)
-        act_data_folder = QAction("Elegir carpeta de datos…", self)
-        act_data_folder.triggered.connect(self._choose_data_folder)
+        act_data_folder = QAction("Elegir base de datos…", self)
+        act_data_folder.triggered.connect(self._choose_data_file)
 
         menu_cfg.insertAction(act_theme, act_data_folder)
         menu_cfg.addAction(act_theme)
@@ -104,13 +104,15 @@ class MainWindow(QMainWindow):
         menu_cfg.addAction(act_exit)
 
         # --- Aplicación --------------------------------------------------- #
-        menu_app = mb.addMenu("Aplicación")
+        self.menu_app = mb.addMenu("Aplicación")
 
-        act_exam = QAction("Hacer examen…", self, triggered=self._start_exam)
-        act_questions = QAction("Preguntas", self, triggered=self._show_questions)
-        act_history = QAction("Historial", self, triggered=self._show_history)
+        self.act_exam = QAction("Hacer examen…", self, triggered=self._start_exam)
+        self.act_questions = QAction("Preguntas", self, triggered=self._show_questions)
+        self.act_history = QAction("Historial", self, triggered=self._show_history)
 
-        menu_app.addActions([act_exam, act_questions, act_history])
+        self.menu_app.addActions([self.act_exam, self.act_questions, self.act_history])
+
+        self.menu_app.aboutToShow.connect(self._warn_if_disabled)
 
     def _start_exam(self) -> None:
         from examgen.gui.dialogs.question_dialog import ExamConfigDialog
@@ -137,29 +139,52 @@ class MainWindow(QMainWindow):
             f"Tema cambiado a {self.settings.theme}. Reinicia la app para ver cambios.",
         )
 
-    def _choose_data_folder(self) -> None:
-        folder = QFileDialog.getExistingDirectory(self, "Seleccionar carpeta de datos")
-        if not folder:
+    def _choose_data_file(self) -> None:
+        start_dir = (
+            Path(self.settings.data_db_path).parent
+            if self.settings.data_db_path and Path(self.settings.data_db_path).exists()
+            else Path(QStandardPaths.writableLocation(QStandardPaths.DocumentsLocation))
+        )
+        file, _ = QFileDialog.getSaveFileName(
+            self,
+            "Seleccionar base de datos",
+            str(start_dir / "examgen.db"),
+            "SQLite DB (*.db);;Todos los archivos (*)",
+        )
+        if not file:
             return
-        p = Path(folder)
+        p = Path(file)
         try:
-            db_file = p / "examgen.db"
-            if not db_file.exists():
-                eng = get_engine(db_file)
-                init_db(eng)
-            self.settings.data_dir = str(p)
+            eng = get_engine(p)
+            init_db(eng)
+            self.settings.data_db_path = str(p)
             self.settings.save()
+            self._set_app_actions_enabled(True)
             QMessageBox.information(
                 self,
-                "Carpeta de datos",
-                "La nueva carpeta de datos se aplicará al reiniciar la aplicación.",
+                "Base de datos",
+                f"Se utilizará {p}. Reinicia la aplicación para aplicar completamente.",
             )
         except Exception as exc:
             QMessageBox.critical(
                 self,
                 "Error",
-                f"No se pudo usar la carpeta seleccionada:\n{exc}",
+                f"No se pudo usar la base de datos seleccionada:\n{exc}",
             )
+
+    def _set_app_actions_enabled(self, enabled: bool) -> None:
+        for act in (self.act_exam, self.act_questions, self.act_history):
+            act.setEnabled(enabled)
+
+    def _warn_if_disabled(self) -> None:
+        if not self.act_exam.isEnabled():
+            QMessageBox.warning(
+                self,
+                "Base de datos no seleccionada",
+                "Debes elegir una base de datos antes de usar estas funciones "
+                "en Configuraci\u00f3n \u25ba Elegir base de datos\u2026",
+            )
+            self.menu_app.hideTearOffMenu()
 
     # --------------------------------------------------------------------- #
     #  Barra de estado                                                      #
@@ -178,7 +203,6 @@ class MainWindow(QMainWindow):
         app = QApplication.instance()
         if app is not None:
             app.setStyleSheet(Style.sheet(self.current_theme) + BUTTON_STYLE)
-
 
     # --------------------------------------------------------------------- #
     #  Diálogo de pregunta                                                  #
