@@ -18,7 +18,7 @@ from PySide6.QtWidgets import (
 from sqlalchemy.orm import selectinload, joinedload
 
 from examgen.core import models as m
-from examgen.core.models import SessionLocal
+from examgen.core.database import SessionLocal
 from examgen.core.services.exam_service import Attempt
 
 

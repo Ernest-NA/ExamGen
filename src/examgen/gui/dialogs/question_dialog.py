@@ -31,7 +31,7 @@ from PySide6.QtWidgets import (
 )
 
 from examgen.core import models as m
-from examgen.core.models import SessionLocal
+from examgen.core.database import SessionLocal
 from examgen.core.services.exam_service import ExamConfig, SelectorTypeEnum
 
 DB_PATH = Path("examgen.db")
@@ -56,7 +56,9 @@ class WrapAnywhereDelegate(QStyledItemDelegate):
     def paint(self, painter, option, index):  # type: ignore[override]
         self.initStyleOption(option, index)
         painter.save()
-        painter.drawText(option.rect, self._flags, str(index.data(Qt.DisplayRole) or ""))
+        painter.drawText(
+            option.rect, self._flags, str(index.data(Qt.DisplayRole) or "")
+        )
         painter.restore()
 
 
@@ -76,7 +78,9 @@ class OptionTable(QTableWidget):
         hh.setStretchLastSection(False)
 
         self.verticalHeader().setVisible(False)
-        self.verticalHeader().setDefaultSectionSize(self.fontMetrics().lineSpacing() + 6)
+        self.verticalHeader().setDefaultSectionSize(
+            self.fontMetrics().lineSpacing() + 6
+        )
         self.setWordWrap(True)
 
         wrap = WrapAnywhereDelegate(self)
@@ -267,7 +271,9 @@ class ExamConfigDialog(QDialog):
 
     def accept(self) -> None:  # type: ignore[override]
         selector = (
-            SelectorTypeEnum.ALEATORIO if self.rb_random.isChecked() else SelectorTypeEnum.ERRORES
+            SelectorTypeEnum.ALEATORIO
+            if self.rb_random.isChecked()
+            else SelectorTypeEnum.ERRORES
         )
         self.config = ExamConfig(
             exam_id=0,
@@ -347,7 +353,7 @@ class QuestionDialog(QDialog):
         self.counter.setText(f"{len(self.prompt.toPlainText())}/{MAX_CHARS}")
 
     def _load_subjects(self) -> None:
-        with m.Session(m.get_engine(self.db_path)) as s:
+        with SessionLocal() as s:
             names = sorted(sub.name for sub in s.query(m.Subject).all())
         self.cb_subject.addItems(names)
         self.cb_subject.setPlaceholderText("Seleccione / escriba…")
@@ -358,7 +364,9 @@ class QuestionDialog(QDialog):
         prompt_txt = self.prompt.toPlainText().strip()
 
         if not subj or not prompt_txt:
-            QMessageBox.warning(self, "Datos incompletos", "Materia y enunciado obligatorios.")
+            QMessageBox.warning(
+                self, "Datos incompletos", "Materia y enunciado obligatorios."
+            )
             return
 
         options, correct = self.table.collect()
@@ -370,14 +378,22 @@ class QuestionDialog(QDialog):
             )
             return
 
-        engine = m.get_engine(self.db_path)
-        with m.Session(engine) as s:
-            subj_obj = s.query(m.Subject).filter_by(name=subj).first() or m.Subject(name=subj)
+        from examgen.core.database import get_engine
 
-            q = m.MCQQuestion(prompt=prompt_txt, subject=subj_obj, reference=ref or None)
+        engine = get_engine()
+        with m.Session(engine) as s:
+            subj_obj = s.query(m.Subject).filter_by(name=subj).first() or m.Subject(
+                name=subj
+            )
+
+            q = m.MCQQuestion(
+                prompt=prompt_txt, subject=subj_obj, reference=ref or None
+            )
             q.options = options
             s.add(q)
             s.commit()
 
-        QMessageBox.information(self, "Pregunta guardada", "La pregunta se ha almacenado correctamente.")
+        QMessageBox.information(
+            self, "Pregunta guardada", "La pregunta se ha almacenado correctamente."
+        )
         super().accept()

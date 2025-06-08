@@ -6,16 +6,16 @@ from pathlib import Path
 
 from PySide6.QtWidgets import QApplication
 
-from examgen.core.database import get_engine, init_db
+from examgen.core.database import get_engine, init_db, set_engine
 from examgen.core.settings import AppSettings
 
 
 st = AppSettings.load()
 db_path = Path(st.data_db_path or Path.home() / "Documents" / "examgen.db")
 db_path.parent.mkdir(parents=True, exist_ok=True)
-engine = get_engine(db_path)
+set_engine(db_path)
 if db_path.exists() or st.data_db_path is None:
-    init_db(engine)
+    init_db(get_engine())
 
 
 def main() -> None:
