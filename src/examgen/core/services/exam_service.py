@@ -8,9 +8,9 @@ import random
 from sqlalchemy import select, func
 from sqlalchemy.orm import Session, selectinload, with_polymorphic
 
-from examgen import models as m
+from examgen.core import models as m
 
-from examgen.models import (
+from examgen.core.models import (
     SessionLocal,
     Attempt,
     AttemptQuestion,

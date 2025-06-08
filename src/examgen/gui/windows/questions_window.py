@@ -18,9 +18,9 @@ from PySide6.QtWidgets import (
 )
 from PySide6.QtCore import Qt
 
-from examgen import models as m
-from examgen.models import SessionLocal
-from examgen.gui.dialogs import QuestionDialog
+from examgen.core import models as m
+from examgen.core.models import SessionLocal
+from examgen.gui.dialogs.question_dialog import QuestionDialog
 from sqlalchemy.orm import selectinload
 
 
