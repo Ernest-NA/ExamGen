@@ -2,7 +2,16 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from sqlalchemy import Column, ForeignKey, Integer, MetaData, String, Table, create_engine
+import sqlalchemy as sa
+from sqlalchemy import (
+    Column,
+    ForeignKey,
+    Integer,
+    MetaData,
+    String,
+    Table,
+    create_engine,
+)
 
 from examgen.core.settings import AppSettings
 
@@ -12,20 +21,31 @@ def run() -> None:
     db_path = Path(AppSettings.load().data_db_path or Path.home() / "Documents" / "examgen.db")
     eng = create_engine(f"sqlite:///{db_path}", future=True)
     meta = MetaData()
-    meta.reflect(bind=eng)
+    try:
+        meta.reflect(bind=eng, resolve_fks=False)
+    except sa.exc.NoSuchTableError:
+        print(
+            "NoSuchTableError durante reflect; puede que no exista ninguna "
+            "tabla con FKs rotas. Continuando…"
+        )
+        return
 
     if "attempt_question" not in meta.tables:
         print("Tabla 'attempt_question' no existe; nada que migrar.")
         return
 
-    aq_old = meta.tables["attempt_question"]
-
-    bad_fk = next(
-        (fk for fk in aq_old.foreign_keys if fk.column.table.name == "attempt_old"),
-        None,
-    )
+    # ---- verificar FK con PRAGMA (fiable incluso si falta attempt_old) ----
+    with eng.connect() as conn:
+        fk_rows = (
+            conn.exec_driver_sql(
+                "PRAGMA foreign_key_list('attempt_question');"
+            )
+            .mappings()
+            .all()
+        )
+    bad_fk = any(row["table"] == "attempt_old" for row in fk_rows)
     if not bad_fk:
-        print("FK ya es correcta; nada que hacer.")
+        print("FK ya es correcta; nada que migrar.")
         return
 
     with eng.begin() as conn:
