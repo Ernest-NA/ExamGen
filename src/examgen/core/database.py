@@ -53,3 +53,9 @@ def init_db(engine: Engine) -> None:
             col_name = col_sql.split()[0]
             if col_name not in existing_cols["answer_option"]:
                 con.exec_driver_sql(f"ALTER TABLE answer_option ADD COLUMN {col_sql}")
+
+def run_migrations() -> None:
+    """Execute optional migration scripts."""
+    from examgen.core.migrations.fix_attempt_fk import run as fix_fk
+
+    fix_fk()
