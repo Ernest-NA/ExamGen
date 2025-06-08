@@ -608,7 +608,7 @@ class AttemptsHistoryDialog(QDialog):
                 self.table.setItem(row, col, item)
 
             del_btn = QToolButton(text="🗑️")
-            del_btn.setFlat(True)
+            del_btn.setAutoRaise(True)
             del_btn.setCursor(Qt.PointingHandCursor)
             del_btn.clicked.connect(lambda _, aid=at.id: self._delete_attempt(aid))
             self.table.setCellWidget(row, 6, del_btn)
