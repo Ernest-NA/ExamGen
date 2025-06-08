@@ -23,7 +23,8 @@ from PySide6.QtWidgets import (
     QAbstractButton,
 )
 
-from examgen.core.models import Attempt, AttemptQuestion, SessionLocal
+from examgen.core.models import Attempt, AttemptQuestion
+from examgen.core.database import SessionLocal
 from examgen.core.services.exam_service import (
     ExamConfig,
     create_attempt,
@@ -145,7 +146,6 @@ class ExamDialog(QDialog):
         opts_container = QWidget()
         self.vbox_opts = QVBoxLayout(opts_container)
         self.vbox_opts.setContentsMargins(0, 0, 0, 0)
-
 
         nav = QHBoxLayout()
         self.btn_prev = QPushButton("\u2190 Anterior", clicked=self._prev)
@@ -362,7 +362,6 @@ class ExamDialog(QDialog):
         if self.index == len(self.attempt.questions) - 1:
             self._next()
 
-
     def on_toggle_clicked(self) -> None:
         if not self.expl_shown:
             self._save_selection()
@@ -411,7 +410,8 @@ class ExamDialog(QDialog):
         self._save_selection()
         self.attempt.ended_at = datetime.utcnow()
 
-        from examgen.core.models import SessionLocal
+        from examgen.core.database import SessionLocal
+
         with SessionLocal() as s:
             s.merge(self.attempt)
             s.commit()

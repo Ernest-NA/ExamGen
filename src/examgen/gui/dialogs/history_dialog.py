@@ -17,7 +17,7 @@ from PySide6.QtWidgets import (
 from sqlalchemy.orm import selectinload
 
 from examgen.core import models as m
-from examgen.core.models import SessionLocal
+from examgen.core.database import SessionLocal
 
 
 class AttemptsHistoryDialog(QDialog):
@@ -101,7 +101,9 @@ class AttemptsHistoryDialog(QDialog):
             w_cells = max(self.table.sizeHintForColumn(c), w_head)
             self.table.setColumnWidth(c, w_cells + 12)
 
-        total_w = sum(self.table.columnWidth(c) for c in range(self.table.columnCount()))
+        total_w = sum(
+            self.table.columnWidth(c) for c in range(self.table.columnCount())
+        )
         total_w += self.table.verticalHeader().width() + 40
         self.table.setMinimumWidth(total_w)
         self.resize(total_w, self.height())

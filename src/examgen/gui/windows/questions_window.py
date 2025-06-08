@@ -19,7 +19,7 @@ from PySide6.QtWidgets import (
 from PySide6.QtCore import Qt
 
 from examgen.core import models as m
-from examgen.core.models import SessionLocal
+from examgen.core.database import SessionLocal
 from examgen.gui.dialogs.question_dialog import QuestionDialog
 from sqlalchemy.orm import selectinload
 
@@ -35,9 +35,7 @@ class QuestionsWindow(QDialog):
         self.cb_subject = QComboBox()
         self.cb_subject.currentIndexChanged.connect(self._load_table)
 
-        self.search = QLineEdit(
-            placeholderText="Busca en enunciado u opciones…"
-        )
+        self.search = QLineEdit(placeholderText="Busca en enunciado u opciones…")
         self.search.setEnabled(False)
         self.search.setMinimumWidth(400)
         self.search.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
@@ -169,7 +167,9 @@ class QuestionsWindow(QDialog):
 
             for rel_idx, opt in enumerate(q.options):
                 row = cur_row + rel_idx
-                self.table.setItem(row, 2, QTableWidgetItem(f"{chr(97 + rel_idx)}) {opt.text}"))
+                self.table.setItem(
+                    row, 2, QTableWidgetItem(f"{chr(97 + rel_idx)}) {opt.text}")
+                )
                 corr_txt = "✔" if opt.is_correct else ""
                 self.table.setItem(row, 3, QTableWidgetItem(corr_txt))
                 self.table.setItem(row, 4, QTableWidgetItem(opt.explanation or ""))

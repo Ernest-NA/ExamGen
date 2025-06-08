@@ -17,6 +17,7 @@ from PySide6.QtWidgets import (
 )
 
 from examgen.core.settings import AppSettings
+from examgen.core.database import set_engine
 
 
 class SettingsDialog(QDialog):
@@ -71,5 +72,6 @@ class SettingsDialog(QDialog):
         self.settings.theme = self.cb_theme.currentText()
         self.settings.data_db_path = self.le_db.text() or None
         self.settings.save()
+        if self.settings.data_db_path:
+            set_engine(Path(self.settings.data_db_path))
         super().accept()
-
