@@ -158,7 +158,7 @@ class Exam(Base):
 class Attempt(Base):
     __tablename__ = "attempt"
 
-    exam_id: Mapped[int] = mapped_column(ForeignKey("exam.id"), nullable=False)
+    exam_id: Mapped[int | None] = mapped_column(ForeignKey("exam.id"), nullable=True)
     subject: Mapped[str] = mapped_column(String(200), nullable=False)
     selector_type: Mapped[SelectorTypeEnum] = mapped_column(
         SQLAEnum(SelectorTypeEnum), nullable=False
@@ -212,6 +212,24 @@ def _add_option_e(engine: Engine) -> None:
         engine.execute(text(f"ALTER TABLE question {stmt}"))
 
 
+def _make_attempt_exam_nullable(engine: Engine) -> None:
+    """Drop NOT NULL constraint from ``attempt.exam_id`` if present."""
+    with engine.begin() as con:
+        info = con.exec_driver_sql("PRAGMA table_info('attempt')").fetchall()
+        exam_col = next((row for row in info if row[1] == "exam_id"), None)
+        if exam_col and exam_col[3]:
+            Attempt.__table__.c.exam_id.nullable = True
+            cols = ", ".join(row[1] for row in info)
+            con.exec_driver_sql("PRAGMA foreign_keys = OFF")
+            con.exec_driver_sql("ALTER TABLE attempt RENAME TO attempt_old")
+            Attempt.__table__.create(bind=con)
+            con.exec_driver_sql(
+                f"INSERT INTO attempt ({cols}) SELECT {cols} FROM attempt_old"
+            )
+            con.exec_driver_sql("DROP TABLE attempt_old")
+            con.exec_driver_sql("PRAGMA foreign_keys = ON")
+
+
 def _create_examiner_tables(engine: Engine) -> None:
     insp = inspect(engine)
     tables = []
@@ -224,6 +242,7 @@ def _create_examiner_tables(engine: Engine) -> None:
 
     _migrate_attempt_subject_column(engine)
     _add_option_e(engine)
+    _make_attempt_exam_nullable(engine)
 
 
 # -----------------------------------------------------------------------------
