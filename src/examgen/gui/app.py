@@ -4,11 +4,13 @@ import sys
 
 from PySide6.QtWidgets import QApplication
 
-from examgen.gui.windows.main_window import MainWindow
-
 
 def main() -> None:
-    app = QApplication(sys.argv)
+    """Punto de entrada principal de la GUI."""
+    # Importar dentro de la función para evitar ciclos
+    from examgen.gui.windows.main_window import MainWindow
+
+    app = QApplication.instance() or QApplication(sys.argv)
     win = MainWindow()
     win.show()
     sys.exit(app.exec())

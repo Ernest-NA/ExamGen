@@ -1,5 +1,3 @@
-from __future__ import annotations
+"""UI package."""
 
-from .widgets.option_table import ExamDialog, start_exam
-
-__all__ = ["ExamDialog", "start_exam"]
+__all__: list[str] = []
