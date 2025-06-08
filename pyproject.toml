@@ -6,6 +6,9 @@ build-backend = "setuptools.build_meta"
 name = "examgen"
 version = "0.1.0"
 
+[project.scripts]
+examgen = "examgen.gui.app:main"
+
 [tool.setuptools]
 package-dir = {"" = "src"}
 
