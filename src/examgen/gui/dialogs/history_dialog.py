@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from PySide6.QtCore import Qt
+from PySide6.QtGui import QIcon
 from PySide6.QtWidgets import (
     QWidget,
     QDialog,
@@ -9,6 +10,7 @@ from PySide6.QtWidgets import (
     QTableWidget,
     QTableWidgetItem,
     QPushButton,
+    QToolButton,
     QMessageBox,
 )
 
@@ -86,8 +88,9 @@ class AttemptsHistoryDialog(QDialog):
                     item.setTextAlignment(Qt.AlignCenter)
                 self.table.setItem(row, col, item)
 
-            del_btn = QPushButton("🗑️")
-            del_btn.setAutoRaise(True)  # type: ignore[attr-defined]
+            del_btn = QToolButton(self.table)
+            del_btn.setIcon(QIcon.fromTheme("edit-delete"))
+            del_btn.setAutoRaise(True)
             del_btn.setCursor(Qt.PointingHandCursor)
             del_btn.clicked.connect(lambda _, aid=at.id: self._delete_attempt(aid))
             self.table.setCellWidget(row, 6, del_btn)
