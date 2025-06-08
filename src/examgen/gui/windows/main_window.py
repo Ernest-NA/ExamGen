@@ -16,11 +16,13 @@ import os
 env_path = Path(__file__).resolve().parents[3] / ".env"
 load_dotenv(env_path)
 
-DB_PATH = Path(os.getenv("EXAMGEN_DB", "examgen.db"))  # ruta BD
-LOG_LEVEL = os.getenv("LOG_LEVEL", "WARNING").upper()
 from examgen.core.settings import AppSettings
+from examgen.core.database import get_engine, init_db
 
 settings = AppSettings.load()
+DATA_ROOT = Path(settings.data_dir or ".")
+DB_PATH = DATA_ROOT / "examgen.db"
+LOG_LEVEL = os.getenv("LOG_LEVEL", "WARNING").upper()
 THEME_MAP = {"dark": "Oscuro", "light": "Claro"}
 THEME = THEME_MAP.get(settings.theme, "Oscuro")
 
@@ -45,6 +47,7 @@ from PySide6.QtWidgets import (
     QMainWindow,
     QMenuBar,
     QStatusBar,
+    QFileDialog,
     QMessageBox,
     QWidget,
 )
@@ -92,7 +95,10 @@ class MainWindow(QMainWindow):
 
         act_theme = QAction("Tema…", self, triggered=self._choose_theme)
         act_exit = QAction("Salir", self, triggered=self.close)
+        act_data_folder = QAction("Elegir carpeta de datos…", self)
+        act_data_folder.triggered.connect(self._choose_data_folder)
 
+        menu_cfg.insertAction(act_theme, act_data_folder)
         menu_cfg.addAction(act_theme)
         menu_cfg.addSeparator()
         menu_cfg.addAction(act_exit)
@@ -130,6 +136,30 @@ class MainWindow(QMainWindow):
             "Tema aplicado",
             f"Tema cambiado a {self.settings.theme}. Reinicia la app para ver cambios.",
         )
+
+    def _choose_data_folder(self) -> None:
+        folder = QFileDialog.getExistingDirectory(self, "Seleccionar carpeta de datos")
+        if not folder:
+            return
+        p = Path(folder)
+        try:
+            db_file = p / "examgen.db"
+            if not db_file.exists():
+                eng = get_engine(db_file)
+                init_db(eng)
+            self.settings.data_dir = str(p)
+            self.settings.save()
+            QMessageBox.information(
+                self,
+                "Carpeta de datos",
+                "La nueva carpeta de datos se aplicará al reiniciar la aplicación.",
+            )
+        except Exception as exc:
+            QMessageBox.critical(
+                self,
+                "Error",
+                f"No se pudo usar la carpeta seleccionada:\n{exc}",
+            )
 
     # --------------------------------------------------------------------- #
     #  Barra de estado                                                      #
