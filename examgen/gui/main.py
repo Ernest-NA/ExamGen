@@ -48,7 +48,6 @@ from PySide6.QtWidgets import (
 )
 
 from examgen import models as m
-from examgen.models import SessionLocal
 from examgen.gui.dialogs import QuestionDialog
 from examgen.gui.style import Style
 from examgen.ui.styles import apply_app_styles, BUTTON_STYLE
@@ -77,10 +76,6 @@ class MainWindow(QMainWindow):
         # Menú y barra de estado
         self._create_menu_bar()
         self._create_status_bar()
-        self.lbl_stats = QLabel(self)
-        self.statusBar().addWidget(self.lbl_stats)
-        self.lbl_stats.setContentsMargins(4, 0, 0, 0)
-        self._refresh_stats()
 
     # --------------------------------------------------------------------- #
     #  Menú                                                                  #
@@ -148,12 +143,6 @@ class MainWindow(QMainWindow):
         # Oculta el borde que QT dibuja en cada item del status-bar
         sb.setStyleSheet("QStatusBar::item { border: 0px solid transparent; }")
 
-    def _refresh_stats(self) -> None:
-        with SessionLocal() as s:
-            num_subj = s.query(m.Subject).count()
-            num_q = s.query(m.MCQQuestion).count()
-        self.lbl_stats.setText(f"Materias: {num_subj}   Preguntas: {num_q}")
-
     # --------------------------------------------------------------------- #
     #  Temas                                                                #
     # --------------------------------------------------------------------- #
@@ -175,8 +164,7 @@ class MainWindow(QMainWindow):
     #  Diálogo de pregunta                                                  #
     # --------------------------------------------------------------------- #
     def _open_question_dialog(self) -> None:
-        if QuestionDialog(self, db_path=DB_PATH).exec():
-            self._refresh_stats()
+        QuestionDialog(self, db_path=DB_PATH).exec()
 
     def _show_questions(self) -> None:
         from PySide6.QtCore import Qt
