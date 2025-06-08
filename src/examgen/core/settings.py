@@ -10,6 +10,7 @@ SETTINGS_PATH = Path(getattr(sys, "_MEIPASS", Path(__file__).resolve().parent.pa
 @dataclass
 class AppSettings:
     theme: str = "dark"
+    data_dir: str | None = None
 
     @classmethod
     def load(cls) -> "AppSettings":
