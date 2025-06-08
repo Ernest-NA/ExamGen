@@ -32,7 +32,8 @@ from PySide6.QtWidgets import (
 
 from examgen.core import models as m
 from examgen.core.database import SessionLocal
-from examgen.core.services.exam_service import ExamConfig, SelectorTypeEnum
+from examgen.core.services.exam_service import ExamConfig
+from examgen.core.models import SelectorTypeEnum
 
 DB_PATH = Path("examgen.db")
 MAX_CHARS = 3000
