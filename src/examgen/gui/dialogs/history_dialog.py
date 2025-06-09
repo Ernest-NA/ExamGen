@@ -42,20 +42,8 @@ class AttemptsHistoryDialog(QDialog):
         self.table.horizontalHeader().setStretchLastSection(False)
         self.table.verticalHeader().setVisible(False)
         self.table.setEditTriggers(QAbstractItemView.NoEditTriggers)
-        self.table.verticalHeader().setSectionResizeMode(
-            QHeaderView.ResizeToContents
-        )
 
         hh = self.table.horizontalHeader()
-        # limit wide text columns and auto-adjust the rest
-        for col in (1, 2, 3):
-            hh.setSectionResizeMode(col, QHeaderView.Interactive)
-            hh.resizeSection(col, 600)
-            hh.setMaximumSectionSize(600)
-
-        for col in (0, 4, 5, 6):
-            self.table.resizeColumnToContents(col)
-            hh.setSectionResizeMode(col, QHeaderView.ResizeToContents)
         icon_w = 32
         hh.resizeSection(6, icon_w)
         hh.resizeSection(7, icon_w)
@@ -125,18 +113,7 @@ class AttemptsHistoryDialog(QDialog):
             del_btn.clicked.connect(lambda _, aid=at.id: self._delete_attempt(aid))
             self.table.setCellWidget(row, 7, del_btn)
 
-            # adjust row height to fit all content
-            self.table.resizeRowToContents(row)
-
-        for row in range(self.table.rowCount()):
-            for col in range(self.table.columnCount()):
-                item = self.table.item(row, col)
-                if item:
-                    item.setTextAlignment(item.textAlignment() | Qt.AlignVCenter)
-
         for c in range(self.table.columnCount()):
-            if c in (1, 2, 3):
-                continue
             self.table.resizeColumnToContents(c)
             w_head = self.table.horizontalHeader().sectionSizeHint(c)
             w_cells = max(self.table.sizeHintForColumn(c), w_head)
@@ -151,7 +128,7 @@ class AttemptsHistoryDialog(QDialog):
         )
         total_w += self.table.verticalHeader().width() + 40
         self.table.setMinimumWidth(total_w)
-        self.resize(2100, self.height())
+        self.resize(total_w, self.height())
 
     def _delete_attempt(self, aid: int) -> None:
         if (
