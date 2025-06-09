@@ -125,11 +125,7 @@ class OptionTable(QTableWidget):
         if not isinstance(btn, QToolButton):
             return
 
-        cell_widget = btn.parent()
-        if not cell_widget:
-            return
-
-        pos_in_view = cell_widget.mapTo(self.viewport(), QPoint(0, 0))
+        pos_in_view = btn.mapTo(self.viewport(), QPoint(0, 0))
         index = self.indexAt(pos_in_view)
         if index.isValid():
             self._remove_row(index.row())
