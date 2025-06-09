@@ -193,6 +193,12 @@ class QuestionsWindow(QDialog):
 
     def _adjust_table_layout(self) -> None:
         """Configure column widths, row heights and window size."""
+        col_ref, col_section, col_correct = 1, 3, 5
+
+        # Anchuras específicas para referencia y sección
+        self.table.setColumnWidth(col_ref, 160)
+        self.table.setColumnWidth(col_section, 240)
+
         max_text_width = 600
         text_cols = (2, 4, 6)
         for col in text_cols:
@@ -209,17 +215,25 @@ class QuestionsWindow(QDialog):
         self.table.setWordWrap(True)
         self.table.resizeRowsToContents()
         vh = self.table.verticalHeader()
+        header_item = self.table.horizontalHeaderItem(col_correct)
+        if header_item:
+            header_item.setTextAlignment(Qt.AlignCenter)
+
         for r in range(self.table.rowCount()):
             vh.setSectionResizeMode(r, QHeaderView.ResizeToContents)
             for c in text_cols:
                 item = self.table.item(r, c)
                 if item:
                     item.setTextAlignment(Qt.AlignVCenter | Qt.AlignLeft)
+            item = self.table.item(r, col_correct)
+            if item:
+                item.setTextAlignment(Qt.AlignCenter | Qt.AlignVCenter)
 
         self.table.setEditTriggers(QAbstractItemView.NoEditTriggers)
 
+        extra = 400  # ancho extra por Referencia y Sección
         desired_width = max(
-            2100,
+            2100 + extra,
             sum(self.table.columnWidth(c) for c in range(self.table.columnCount()))
             + 60,
         )
