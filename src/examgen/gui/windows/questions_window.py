@@ -194,7 +194,8 @@ class QuestionsWindow(QDialog):
     def _adjust_table_layout(self) -> None:
         """Configure column widths, row heights and window size."""
         col_ref, col_section, col_correct = 1, 3, 5
-        col_delete = self.table.columnCount() - 1
+        COL_DELETE = self.table.columnCount() - 1
+        COL_EXPLAIN = 6
 
         hh = self.table.horizontalHeader()
         hh.setStretchLastSection(False)
@@ -211,12 +212,14 @@ class QuestionsWindow(QDialog):
         for col in text_cols:
             self.table.setColumnWidth(col, max_text_width)
 
-        icon_w = 32
-        hh.setSectionResizeMode(col_delete, QHeaderView.Fixed)
-        self.table.setColumnWidth(col_delete, icon_w)
+        icon_w = 48
+        hh.setSectionResizeMode(COL_DELETE, QHeaderView.Fixed)
+        self.table.setColumnWidth(COL_DELETE, icon_w)
+
+        hh.setSectionResizeMode(COL_EXPLAIN, QHeaderView.Stretch)
 
         for c in range(self.table.columnCount()):
-            if c not in text_cols and c not in (col_ref, col_section, col_delete):
+            if c not in text_cols and c not in (col_ref, col_section, COL_DELETE, COL_EXPLAIN):
                 hh.setSectionResizeMode(c, QHeaderView.ResizeToContents)
 
         self.table.setWordWrap(True)
@@ -238,7 +241,7 @@ class QuestionsWindow(QDialog):
 
         self.table.setEditTriggers(QAbstractItemView.NoEditTriggers)
 
-        extra_width = 160 + 240 + 32
+        extra_width = 160 + 240
         desired_width = max(
             2100 + extra_width,
             sum(self.table.columnWidth(c) for c in range(self.table.columnCount()))
