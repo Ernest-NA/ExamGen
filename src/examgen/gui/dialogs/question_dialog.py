@@ -396,11 +396,11 @@ class QuestionDialog(QDialog):
             return
 
         options, correct = self.table.collect()
-        if len(options) < 2 or correct == 0:
+        if len(options) < 3 or correct == 0:
             QMessageBox.warning(
                 self,
                 "Datos incompletos",
-                "Añade ≥2 opciones y marca la(s) correcta(s).",
+                "Añade ≥3 opciones y marca la(s) correcta(s).",
             )
             return
 
