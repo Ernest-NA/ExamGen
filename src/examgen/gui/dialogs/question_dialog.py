@@ -2,7 +2,7 @@ from __future__ import annotations
 from pathlib import Path
 from typing import List, Optional
 
-from PySide6.QtCore import Qt, QSize
+from PySide6.QtCore import Qt, QSize, QPoint
 from PySide6.QtGui import QIcon, QTextOption
 from PySide6.QtWidgets import (
     QCheckBox,
@@ -120,17 +120,19 @@ class OptionTable(QTableWidget):
         self.setCellWidget(row, 4, trash)
 
     def _remove_clicked(self) -> None:
-        """Eliminar la fila que contiene el botón papelera que emitió la señal."""
+        """Eliminar la fila donde vive el botón papelera que emitió la señal."""
         btn = self.sender()
         if not isinstance(btn, QToolButton):
             return
+
         cell_widget = btn.parent()
         if not cell_widget:
             return
-        index = self.indexAt(cell_widget.pos())
-        row = index.row()
-        if row >= 0:
-            self._remove_row(row)
+
+        pos_in_view = cell_widget.mapTo(self.viewport(), QPoint(0, 0))
+        index = self.indexAt(pos_in_view)
+        if index.isValid():
+            self._remove_row(index.row())
 
     def add_row(self) -> None:
         r = self.rowCount()
