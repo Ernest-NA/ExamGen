@@ -120,11 +120,16 @@ class OptionTable(QTableWidget):
         self.setCellWidget(row, 4, trash)
 
     def _remove_clicked(self) -> None:
-        """Slot conectado a cada papelera; elimina la fila donde vive el botón."""
-        btn: QToolButton = self.sender()  # type: ignore
-        if btn:
-            r = self.indexAt(btn.parent().pos()).row()
-            self._remove_row(r)
+        """Eliminar la fila donde vive el botón papelera que emitió la señal."""
+        btn = self.sender()
+        if not isinstance(btn, QToolButton):
+            return
+
+        for row in range(self.rowCount()):
+            cell = self.cellWidget(row, 4)
+            if cell is btn or (cell and cell.findChild(QToolButton) is btn):
+                self._remove_row(row)
+                break
 
     def add_row(self) -> None:
         r = self.rowCount()
