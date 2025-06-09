@@ -6,6 +6,8 @@ Ejecuta:       python -m examgen.models
 para crear / actualizar examgen.db en la raíz del proyecto.
 """
 
+# ruff: noqa: E402
+
 import datetime as _dt
 from enum import Enum as _Enum
 from pathlib import Path
@@ -31,7 +33,6 @@ from sqlalchemy.orm import (
     Mapped,
     mapped_column,
     relationship,
-    Session,
 )
 
 
@@ -97,6 +98,7 @@ class Question(Base):
         back_populates="questions", foreign_keys=[subject_id]
     )
     reference: Mapped[str | None] = mapped_column(String(200))
+    section: Mapped[str | None] = mapped_column(String(255))
 
     option_e: Mapped[str | None] = mapped_column(Text())
     is_e_correct: Mapped[bool] = mapped_column(Boolean, default=False)
@@ -212,6 +214,14 @@ def _add_option_e(engine: Engine) -> None:
         engine.execute(text(f"ALTER TABLE question {stmt}"))
 
 
+def _add_section(engine: Engine) -> None:
+    """Add section column to question table if missing."""
+    insp = inspect(engine)
+    cols = {c["name"] for c in insp.get_columns("question")}
+    if "section" not in cols:
+        engine.execute(text("ALTER TABLE question ADD COLUMN section VARCHAR(255)"))
+
+
 def _make_attempt_exam_nullable(engine: Engine) -> None:
     """Drop NOT NULL constraint from ``attempt.exam_id`` if present."""
     with engine.begin() as con:
@@ -242,6 +252,7 @@ def _create_examiner_tables(engine: Engine) -> None:
 
     _migrate_attempt_subject_column(engine)
     _add_option_e(engine)
+    _add_section(engine)
     _make_attempt_exam_nullable(engine)
 
 
