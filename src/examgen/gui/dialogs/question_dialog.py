@@ -404,10 +404,7 @@ class QuestionDialog(QDialog):
             )
             return
 
-        from examgen.core.database import get_engine
-
-        engine = get_engine()
-        with m.Session(engine) as s:
+        with SessionLocal() as s:
             subj_obj = s.query(m.Subject).filter_by(name=subj).first() or m.Subject(
                 name=subj
             )
