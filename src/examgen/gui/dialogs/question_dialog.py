@@ -116,8 +116,15 @@ class OptionTable(QTableWidget):
         trash = QToolButton()
         trash.setIcon(QIcon.fromTheme("edit-delete"))
         trash.setAutoRaise(True)
-        trash.clicked.connect(lambda *_: self._remove_row(row))
+        trash.clicked.connect(self._remove_clicked)
         self.setCellWidget(row, 4, trash)
+
+    def _remove_clicked(self) -> None:
+        """Slot conectado a cada papelera; elimina la fila donde vive el botón."""
+        btn: QToolButton = self.sender()  # type: ignore
+        if btn:
+            r = self.indexAt(btn.parent().pos()).row()
+            self._remove_row(r)
 
     def add_row(self) -> None:
         r = self.rowCount()
