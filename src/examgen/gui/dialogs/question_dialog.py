@@ -301,12 +301,16 @@ class QuestionDialog(QDialog):
         self.resize(1920, 1080)
 
         self.cb_subject = QComboBox(editable=True, fixedWidth=500)
+        self.le_section = QLineEdit(maxLength=255)
         self.le_reference = QLineEdit()
         self.le_reference.setPlaceholderText("ej.: exam_1025")
 
         top = QHBoxLayout()
         top.setContentsMargins(0, 0, 0, 0)
         top.addWidget(self.cb_subject)
+        top.addSpacing(20)
+        top.addWidget(QLabel("Sección:"))
+        top.addWidget(self.le_section)
         top.addSpacing(20)
         top.addWidget(QLabel("Referencia:"))
         top.addWidget(self.le_reference)
@@ -362,6 +366,7 @@ class QuestionDialog(QDialog):
     def accept(self) -> None:  # type: ignore[override]
         subj = self.cb_subject.currentText().strip()
         ref = self.le_reference.text().strip()
+        section = self.le_section.text().strip()
         prompt_txt = self.prompt.toPlainText().strip()
 
         if not subj or not prompt_txt:
@@ -388,7 +393,10 @@ class QuestionDialog(QDialog):
             )
 
             q = m.MCQQuestion(
-                prompt=prompt_txt, subject=subj_obj, reference=ref or None
+                prompt=prompt_txt,
+                subject=subj_obj,
+                reference=ref or None,
+                section=section or None,
             )
             q.options = options
             s.add(q)

@@ -52,7 +52,9 @@ class QuestionsWindow(QDialog):
         # --- tabla ---
         headers = [
             "No.",
+            "Referencia",
             "Pregunta",
+            "Sección",
             "Opciones de respuesta",
             "Correcta",
             "Explicación",
@@ -60,10 +62,8 @@ class QuestionsWindow(QDialog):
         ]
         self.table = QTableWidget(0, len(headers))
         self.table.setHorizontalHeaderLabels(headers)
-        self.table.horizontalHeader().setSectionResizeMode(1, QHeaderView.Stretch)
-        self.table.horizontalHeader().setSectionResizeMode(2, QHeaderView.Stretch)
-        self.table.horizontalHeader().setSectionResizeMode(3, QHeaderView.Stretch)
-        self.table.horizontalHeader().setSectionResizeMode(4, QHeaderView.Stretch)
+        for idx in range(2, 7):
+            self.table.horizontalHeader().setSectionResizeMode(idx, QHeaderView.Stretch)
         self.table.verticalHeader().setVisible(False)
         self.table.setWordWrap(True)
         self.table.setShowGrid(True)
@@ -138,11 +138,23 @@ class QuestionsWindow(QDialog):
             if n_opts > 1:
                 self.table.setSpan(cur_row, 0, n_opts, 1)
 
-            pitem = QTableWidgetItem(q.prompt)
-            pitem.setFlags(Qt.ItemIsEnabled)
-            self.table.setItem(cur_row, 1, pitem)
+            ref_item = QTableWidgetItem(q.reference or "")
+            ref_item.setFlags(Qt.ItemIsEnabled)
+            self.table.setItem(cur_row, 1, ref_item)
             if n_opts > 1:
                 self.table.setSpan(cur_row, 1, n_opts, 1)
+
+            pitem = QTableWidgetItem(q.prompt)
+            pitem.setFlags(Qt.ItemIsEnabled)
+            self.table.setItem(cur_row, 2, pitem)
+            if n_opts > 1:
+                self.table.setSpan(cur_row, 2, n_opts, 1)
+
+            section_item = QTableWidgetItem(q.section or "")
+            section_item.setFlags(Qt.ItemIsEnabled)
+            self.table.setItem(cur_row, 3, section_item)
+            if n_opts > 1:
+                self.table.setSpan(cur_row, 3, n_opts, 1)
 
             btn_del = QPushButton("🗑️")
             btn_del.setFlat(True)
@@ -161,18 +173,18 @@ class QuestionsWindow(QDialog):
             """
             )
             btn_del.clicked.connect(lambda _, qid=q.id: self._delete_question(qid))
-            self.table.setCellWidget(cur_row, 5, btn_del)
+            self.table.setCellWidget(cur_row, 7, btn_del)
             if n_opts > 1:
-                self.table.setSpan(cur_row, 5, n_opts, 1)
+                self.table.setSpan(cur_row, 7, n_opts, 1)
 
             for rel_idx, opt in enumerate(q.options):
                 row = cur_row + rel_idx
                 self.table.setItem(
-                    row, 2, QTableWidgetItem(f"{chr(97 + rel_idx)}) {opt.text}")
+                    row, 4, QTableWidgetItem(f"{chr(97 + rel_idx)}) {opt.text}")
                 )
                 corr_txt = "✔" if opt.is_correct else ""
-                self.table.setItem(row, 3, QTableWidgetItem(corr_txt))
-                self.table.setItem(row, 4, QTableWidgetItem(opt.explanation or ""))
+                self.table.setItem(row, 5, QTableWidgetItem(corr_txt))
+                self.table.setItem(row, 6, QTableWidgetItem(opt.explanation or ""))
 
             cur_row += n_opts
         self.table.resizeRowsToContents()
