@@ -10,13 +10,14 @@ from PySide6.QtWidgets import (
     QPushButton,
     QTableWidget,
     QTableWidgetItem,
-    QHeaderView,
     QMessageBox,
     QStatusBar,
     QLabel,
     QSizePolicy,
 )
 from PySide6.QtCore import Qt
+
+MAX_COL_W = 350  # píxeles
 
 from examgen.core import models as m
 from examgen.core.database import SessionLocal
@@ -62,8 +63,8 @@ class QuestionsWindow(QDialog):
         ]
         self.table = QTableWidget(0, len(headers))
         self.table.setHorizontalHeaderLabels(headers)
-        for idx in range(2, 7):
-            self.table.horizontalHeader().setSectionResizeMode(idx, QHeaderView.Stretch)
+        hh = self.table.horizontalHeader()
+        hh.setStretchLastSection(True)
         self.table.verticalHeader().setVisible(False)
         self.table.setWordWrap(True)
         self.table.setShowGrid(True)
@@ -188,6 +189,16 @@ class QuestionsWindow(QDialog):
 
             cur_row += n_opts
         self.table.resizeRowsToContents()
+        self._auto_resize_columns()
+
+    def _auto_resize_columns(self) -> None:
+        """Redimensiona columnas al contenido y las limita a MAX_COL_W."""
+        header = self.table.horizontalHeader()
+        for c in range(self.table.columnCount()):
+            self.table.resizeColumnToContents(c)
+            width = self.table.columnWidth(c)
+            if width > MAX_COL_W:
+                self.table.setColumnWidth(c, MAX_COL_W)
 
     def _refresh_stats(self) -> None:
         with SessionLocal() as s:
