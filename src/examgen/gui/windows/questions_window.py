@@ -14,10 +14,10 @@ from PySide6.QtWidgets import (
     QStatusBar,
     QLabel,
     QSizePolicy,
+    QHeaderView,
+    QAbstractItemView,
 )
 from PySide6.QtCore import Qt
-
-MAX_COL_W = 350  # píxeles
 
 from examgen.core import models as m
 from examgen.core.database import SessionLocal
@@ -189,21 +189,41 @@ class QuestionsWindow(QDialog):
                 self.table.setItem(row, 6, QTableWidgetItem(opt.explanation or ""))
 
             cur_row += n_opts
-        self._auto_resize_columns()
-        self._auto_resize_rows()
+        self._adjust_table_layout()
 
-    def _auto_resize_columns(self) -> None:
-        """Redimensiona columnas al contenido y las limita a MAX_COL_W."""
-        header = self.table.horizontalHeader()
-        for c in range(self.table.columnCount()):
-            self.table.resizeColumnToContents(c)
-            width = self.table.columnWidth(c)
-            if width > MAX_COL_W:
-                self.table.setColumnWidth(c, MAX_COL_W)
+    def _adjust_table_layout(self) -> None:
+        """Configure column widths, row heights and window size."""
+        max_text_width = 600
+        text_cols = (2, 4, 6)
+        for col in text_cols:
+            self.table.setColumnWidth(col, max_text_width)
 
-    def _auto_resize_rows(self) -> None:
-        """Ajusta la altura de todas las filas al contenido (sin tope)."""
+        icon_w = 32
+        self.table.setColumnWidth(self.table.columnCount() - 1, icon_w)
+
+        hh = self.table.horizontalHeader()
+        for c in range(self.table.columnCount() - 1):
+            if c not in text_cols:
+                hh.setSectionResizeMode(c, QHeaderView.ResizeToContents)
+
+        self.table.setWordWrap(True)
         self.table.resizeRowsToContents()
+        vh = self.table.verticalHeader()
+        for r in range(self.table.rowCount()):
+            vh.setSectionResizeMode(r, QHeaderView.ResizeToContents)
+            for c in text_cols:
+                item = self.table.item(r, c)
+                if item:
+                    item.setTextAlignment(Qt.AlignVCenter | Qt.AlignLeft)
+
+        self.table.setEditTriggers(QAbstractItemView.NoEditTriggers)
+
+        desired_width = max(
+            2100,
+            sum(self.table.columnWidth(c) for c in range(self.table.columnCount()))
+            + 60,
+        )
+        self.resize(desired_width, self.height())
 
     def _refresh_stats(self) -> None:
         with SessionLocal() as s:
