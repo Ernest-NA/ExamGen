@@ -21,6 +21,7 @@ MAX_COL_W = 350  # píxeles
 
 from examgen.core import models as m
 from examgen.core.database import SessionLocal
+from sqlalchemy.exc import IntegrityError
 from examgen.gui.dialogs.question_dialog import QuestionDialog
 from sqlalchemy.orm import selectinload
 
@@ -230,8 +231,20 @@ class QuestionsWindow(QDialog):
         )
         if reply != QMessageBox.Yes:
             return
-        with SessionLocal() as s:
-            s.query(m.MCQQuestion).filter_by(id=qid).delete()
-            s.commit()
+        try:
+            with SessionLocal() as s:
+                q = s.get(m.MCQQuestion, qid)
+                if not q:
+                    return
+                s.delete(q)
+                s.commit()
+        except IntegrityError:
+            QMessageBox.critical(
+                self,
+                "No se pudo borrar",
+                "La pregunta est\xe1 siendo usada en alg\xfan examen. "
+                "Elimina primero los intentos relacionados.",
+            )
+            return
         self._load_table()
         self._refresh_stats()
