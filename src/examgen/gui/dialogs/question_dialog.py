@@ -301,7 +301,9 @@ class QuestionDialog(QDialog):
         self.resize(1920, 1080)
 
         self.cb_subject = QComboBox(editable=True, fixedWidth=500)
-        self.le_section = QLineEdit(maxLength=255)
+        self.cb_section = QComboBox()
+        self.cb_section.setEditable(True)
+        self.cb_section.setFixedWidth(500)
         self.le_reference = QLineEdit()
         self.le_reference.setPlaceholderText("ej.: exam_1025")
 
@@ -310,7 +312,7 @@ class QuestionDialog(QDialog):
         top.addWidget(self.cb_subject)
         top.addSpacing(20)
         top.addWidget(QLabel("Sección:"))
-        top.addWidget(self.le_section)
+        top.addWidget(self.cb_section)
         top.addSpacing(20)
         top.addWidget(QLabel("Referencia:"))
         top.addWidget(self.le_reference)
@@ -349,6 +351,7 @@ class QuestionDialog(QDialog):
         root.addLayout(form)
         root.addWidget(buttons)
         self._load_subjects()
+        self._load_sections()
 
     def _update_counter(self) -> None:
         txt = self.prompt.toPlainText()
@@ -363,10 +366,27 @@ class QuestionDialog(QDialog):
         self.cb_subject.addItems(names)
         self.cb_subject.setPlaceholderText("Seleccione / escriba…")
 
+    def _load_sections(self) -> None:
+        with SessionLocal() as s:
+            sections = (
+                s.query(m.MCQQuestion.section)
+                .filter(m.MCQQuestion.section.is_not(None))
+                .distinct()
+                .order_by(m.MCQQuestion.section)
+                .all()
+            )
+
+        self.cb_section.clear()
+        self.cb_section.addItems([sec[0] for sec in sections])
+
+        completer = QCompleter(self.cb_section.model(), self)
+        completer.setCaseSensitivity(Qt.CaseInsensitive)
+        self.cb_section.setCompleter(completer)
+
     def accept(self) -> None:  # type: ignore[override]
         subj = self.cb_subject.currentText().strip()
         ref = self.le_reference.text().strip()
-        section = self.le_section.text().strip()
+        section = self.cb_section.currentText().strip()
         prompt_txt = self.prompt.toPlainText().strip()
 
         if not subj or not prompt_txt:
