@@ -194,9 +194,16 @@ class QuestionsWindow(QDialog):
     def _adjust_table_layout(self) -> None:
         """Configure column widths, row heights and window size."""
         col_ref, col_section, col_correct = 1, 3, 5
+        col_delete = self.table.columnCount() - 1
+
+        hh = self.table.horizontalHeader()
+        hh.setStretchLastSection(False)
 
         # Anchuras específicas para referencia y sección
+        hh.setSectionResizeMode(col_ref, QHeaderView.Fixed)
         self.table.setColumnWidth(col_ref, 160)
+
+        hh.setSectionResizeMode(col_section, QHeaderView.Fixed)
         self.table.setColumnWidth(col_section, 240)
 
         max_text_width = 600
@@ -205,11 +212,11 @@ class QuestionsWindow(QDialog):
             self.table.setColumnWidth(col, max_text_width)
 
         icon_w = 32
-        self.table.setColumnWidth(self.table.columnCount() - 1, icon_w)
+        hh.setSectionResizeMode(col_delete, QHeaderView.Fixed)
+        self.table.setColumnWidth(col_delete, icon_w)
 
-        hh = self.table.horizontalHeader()
-        for c in range(self.table.columnCount() - 1):
-            if c not in text_cols:
+        for c in range(self.table.columnCount()):
+            if c not in text_cols and c not in (col_ref, col_section, col_delete):
                 hh.setSectionResizeMode(c, QHeaderView.ResizeToContents)
 
         self.table.setWordWrap(True)
@@ -231,9 +238,9 @@ class QuestionsWindow(QDialog):
 
         self.table.setEditTriggers(QAbstractItemView.NoEditTriggers)
 
-        extra = 400  # ancho extra por Referencia y Sección
+        extra_width = 160 + 240 + 32
         desired_width = max(
-            2100 + extra,
+            2100 + extra_width,
             sum(self.table.columnWidth(c) for c in range(self.table.columnCount()))
             + 60,
         )
