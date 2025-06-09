@@ -12,6 +12,8 @@ from PySide6.QtWidgets import (
     QPushButton,
     QToolButton,
     QMessageBox,
+    QHeaderView,
+    QAbstractItemView,
 )
 
 from sqlalchemy.orm import selectinload
@@ -33,11 +35,20 @@ class AttemptsHistoryDialog(QDialog):
             "Correctas",
             "%",
             "",
+            "",
         ]
         self.table = QTableWidget(0, len(cols), self)
         self.table.setHorizontalHeaderLabels(cols)
         self.table.horizontalHeader().setStretchLastSection(False)
         self.table.verticalHeader().setVisible(False)
+        self.table.setEditTriggers(QAbstractItemView.NoEditTriggers)
+
+        hh = self.table.horizontalHeader()
+        icon_w = 32
+        hh.resizeSection(6, icon_w)
+        hh.resizeSection(7, icon_w)
+        hh.setSectionResizeMode(6, QHeaderView.Fixed)
+        hh.setSectionResizeMode(7, QHeaderView.Fixed)
 
         self._session = SessionLocal()
 
@@ -88,18 +99,29 @@ class AttemptsHistoryDialog(QDialog):
                     item.setTextAlignment(Qt.AlignCenter)
                 self.table.setItem(row, col, item)
 
+            edit_btn = QToolButton(self.table)
+            edit_btn.setIcon(QIcon.fromTheme("document-edit"))
+            edit_btn.setAutoRaise(True)
+            edit_btn.setCursor(Qt.PointingHandCursor)
+            edit_btn.clicked.connect(self._edit_placeholder)
+            self.table.setCellWidget(row, 6, edit_btn)
+
             del_btn = QToolButton(self.table)
             del_btn.setIcon(QIcon.fromTheme("edit-delete"))
             del_btn.setAutoRaise(True)
             del_btn.setCursor(Qt.PointingHandCursor)
             del_btn.clicked.connect(lambda _, aid=at.id: self._delete_attempt(aid))
-            self.table.setCellWidget(row, 6, del_btn)
+            self.table.setCellWidget(row, 7, del_btn)
 
         for c in range(self.table.columnCount()):
             self.table.resizeColumnToContents(c)
             w_head = self.table.horizontalHeader().sectionSizeHint(c)
             w_cells = max(self.table.sizeHintForColumn(c), w_head)
             self.table.setColumnWidth(c, w_cells + 12)
+
+        icon_w = 32
+        self.table.setColumnWidth(6, icon_w)
+        self.table.setColumnWidth(7, icon_w)
 
         total_w = sum(
             self.table.columnWidth(c) for c in range(self.table.columnCount())
@@ -124,6 +146,13 @@ class AttemptsHistoryDialog(QDialog):
             s.query(m.Attempt).filter_by(id=aid).delete()
             s.commit()
         self._reload_table()
+
+    def _edit_placeholder(self) -> None:
+        QMessageBox.information(
+            self,
+            "Editar intento",
+            "Función de edición pendiente de implementar.",
+        )
 
     def _clear_all(self) -> None:
         if (
