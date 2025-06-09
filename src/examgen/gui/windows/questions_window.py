@@ -188,8 +188,8 @@ class QuestionsWindow(QDialog):
                 self.table.setItem(row, 6, QTableWidgetItem(opt.explanation or ""))
 
             cur_row += n_opts
-        self.table.resizeRowsToContents()
         self._auto_resize_columns()
+        self._auto_resize_rows()
 
     def _auto_resize_columns(self) -> None:
         """Redimensiona columnas al contenido y las limita a MAX_COL_W."""
@@ -199,6 +199,10 @@ class QuestionsWindow(QDialog):
             width = self.table.columnWidth(c)
             if width > MAX_COL_W:
                 self.table.setColumnWidth(c, MAX_COL_W)
+
+    def _auto_resize_rows(self) -> None:
+        """Ajusta la altura de todas las filas al contenido (sin tope)."""
+        self.table.resizeRowsToContents()
 
     def _refresh_stats(self) -> None:
         with SessionLocal() as s:
