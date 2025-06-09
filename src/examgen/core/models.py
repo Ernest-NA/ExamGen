@@ -22,7 +22,6 @@ from sqlalchemy import (
     JSON,
     String,
     Text,
-    text,
     create_engine,
     Enum as SQLAEnum,
     inspect,
@@ -210,8 +209,10 @@ def _add_option_e(engine: Engine) -> None:
         alter.append("ADD COLUMN option_e TEXT")
     if "is_e_correct" not in cols:
         alter.append("ADD COLUMN is_e_correct BOOLEAN DEFAULT 0")
-    for stmt in alter:
-        engine.execute(text(f"ALTER TABLE question {stmt}"))
+    if alter:
+        with engine.begin() as conn:
+            for stmt in alter:
+                conn.exec_driver_sql(f"ALTER TABLE question {stmt}")
 
 
 def _add_section(engine: Engine) -> None:
@@ -219,7 +220,10 @@ def _add_section(engine: Engine) -> None:
     insp = inspect(engine)
     cols = {c["name"] for c in insp.get_columns("question")}
     if "section" not in cols:
-        engine.execute(text("ALTER TABLE question ADD COLUMN section VARCHAR(255)"))
+        with engine.begin() as conn:
+            conn.exec_driver_sql(
+                "ALTER TABLE question ADD COLUMN section VARCHAR(255)"
+            )
 
 
 def _make_attempt_exam_nullable(engine: Engine) -> None:
