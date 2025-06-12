@@ -34,6 +34,7 @@ from examgen.core import models as m
 from examgen.core.database import SessionLocal
 from examgen.core.services.exam_service import ExamConfig
 from examgen.core.models import SelectorTypeEnum
+from sqlalchemy.orm import Session
 
 DB_PATH = Path("examgen.db")
 MAX_CHARS = 3000
@@ -309,9 +310,16 @@ class ExamConfigDialog(QDialog):
 
 
 class QuestionDialog(QDialog):
-    def __init__(self, parent: QWidget | None = None, *, db_path: Path = DB_PATH):
+    def __init__(
+        self,
+        parent: QWidget | None = None,
+        *,
+        db_path: Path = DB_PATH,
+        question: m.MCQQuestion | None = None,
+    ):
         super().__init__(parent)
         self.db_path = db_path
+        self._question = question
         self.setWindowTitle("Nueva pregunta – MCQ")
         self.resize(1920, 1080)
 
@@ -368,6 +376,22 @@ class QuestionDialog(QDialog):
         self._load_subjects()
         self._load_sections()
 
+        if self._question:
+            self.cb_subject.setCurrentText(self._question.subject.name)
+            self.cb_section.setCurrentText(self._question.section or "")
+            self.le_reference.setText(self._question.reference or "")
+            self.prompt.setPlainText(self._question.prompt)
+
+            opts = self._question.options
+            while len(opts) > self.table.rowCount():
+                self.table.add_row()
+            for r, opt in enumerate(opts):
+                self.table.item(r, 1).setText(opt.text)
+                self.table.item(r, 3).setText(opt.explanation or "")
+                self.table.cellWidget(r, 2).findChild(QCheckBox).setChecked(
+                    opt.is_correct
+                )
+
     def _update_counter(self) -> None:
         txt = self.prompt.toPlainText()
         if len(txt) > MAX_CHARS:
@@ -398,6 +422,15 @@ class QuestionDialog(QDialog):
         completer.setCaseSensitivity(Qt.CaseInsensitive)
         self.cb_section.setCompleter(completer)
 
+    @staticmethod
+    def _ensure_subject(session: Session, name: str) -> m.Subject:
+        subj = session.query(m.Subject).filter_by(name=name).first()
+        if not subj:
+            subj = m.Subject(name=name)
+            session.add(subj)
+            session.flush()
+        return subj
+
     def accept(self) -> None:  # type: ignore[override]
         subj = self.cb_subject.currentText().strip()
         ref = self.le_reference.text().strip()
@@ -420,18 +453,24 @@ class QuestionDialog(QDialog):
             return
 
         with SessionLocal() as s:
-            subj_obj = s.query(m.Subject).filter_by(name=subj).first() or m.Subject(
-                name=subj
-            )
-
-            q = m.MCQQuestion(
-                prompt=prompt_txt,
-                subject=subj_obj,
-                reference=ref or None,
-                section=section or None,
-            )
-            q.options = options
-            s.add(q)
+            if self._question is None:
+                subj_obj = self._ensure_subject(s, subj)
+                q = m.MCQQuestion(
+                    prompt=prompt_txt,
+                    subject=subj_obj,
+                    reference=ref or None,
+                    section=section or None,
+                )
+                q.options = options
+                s.add(q)
+            else:
+                q = s.merge(self._question)
+                q.prompt = prompt_txt
+                q.reference = ref or None
+                q.section = section or None
+                q.subject = self._ensure_subject(s, subj)
+                q.options[:] = []
+                q.options.extend(options)
             s.commit()
 
         QMessageBox.information(
