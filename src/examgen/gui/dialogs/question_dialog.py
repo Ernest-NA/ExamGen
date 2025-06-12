@@ -34,7 +34,7 @@ from examgen.core import models as m
 from examgen.core.database import SessionLocal
 from examgen.core.services.exam_service import ExamConfig
 from examgen.core.models import SelectorTypeEnum
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, joinedload, selectinload
 
 DB_PATH = Path("examgen.db")
 MAX_CHARS = 3000
@@ -315,11 +315,21 @@ class QuestionDialog(QDialog):
         parent: QWidget | None = None,
         *,
         db_path: Path = DB_PATH,
-        question: m.MCQQuestion | None = None,
+        question_id: int | None = None,
     ):
         super().__init__(parent)
         self.db_path = db_path
-        self._question = question
+        self._question = None
+        if question_id is not None:
+            with SessionLocal() as s:
+                self._question = (
+                    s.query(m.MCQQuestion)
+                    .options(
+                        selectinload(m.MCQQuestion.options),
+                        joinedload(m.MCQQuestion.subject),
+                    )
+                    .get(question_id)
+                )
         self.setWindowTitle("Nueva pregunta – MCQ")
         self.resize(1920, 1080)
 

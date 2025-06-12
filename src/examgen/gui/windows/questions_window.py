@@ -18,6 +18,7 @@ from PySide6.QtWidgets import (
     QSizePolicy,
     QHeaderView,
     QAbstractItemView,
+    QStyle,
 )
 from PySide6.QtCore import Qt
 
@@ -97,11 +98,7 @@ class QuestionsWindow(QDialog):
         self._refresh_stats()
 
     def _edit_question(self, qid: int) -> None:
-        with SessionLocal() as s:
-            q = s.get(m.MCQQuestion, qid)
-        if not q:
-            return
-        dlg = QuestionDialog(self, question=q)
+        dlg = QuestionDialog(self, question_id=qid)
         if dlg.exec() == QDialog.Accepted:
             self._load_table()
 
@@ -180,7 +177,10 @@ class QuestionsWindow(QDialog):
                 self.table.setSpan(cur_row, 3, n_opts, 1)
 
             edit_btn = QToolButton(self.table)
-            edit_btn.setIcon(QIcon.fromTheme("document-edit"))
+            icon = QIcon.fromTheme("document-edit")
+            if icon.isNull():
+                icon = self.style().standardIcon(QStyle.SP_FileDialogDetailedView)
+            edit_btn.setIcon(icon)
             edit_btn.setAutoRaise(True)
             edit_btn.clicked.connect(lambda _, qid=q.id: self._edit_question(qid))
             self.table.setCellWidget(cur_row, COL_EDIT, edit_btn)
