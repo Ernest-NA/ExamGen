@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from PySide6.QtGui import QIcon
 from PySide6.QtWidgets import (
     QDialog,
     QWidget,
@@ -10,6 +11,7 @@ from PySide6.QtWidgets import (
     QPushButton,
     QTableWidget,
     QTableWidgetItem,
+    QToolButton,
     QMessageBox,
     QStatusBar,
     QLabel,
@@ -71,6 +73,13 @@ class QuestionsWindow(QDialog):
         self.table.setShowGrid(True)
         self.table.setStyleSheet("QTableView::item { padding: 2px 4px; }")
 
+        icon_w = 48
+        COL_EDIT = self.table.columnCount() - 1
+        self.table.insertColumn(COL_EDIT)
+        self.table.setHorizontalHeaderItem(COL_EDIT, QTableWidgetItem(""))
+        hh.setSectionResizeMode(COL_EDIT, QHeaderView.Fixed)
+        self.table.setColumnWidth(COL_EDIT, icon_w)
+
         root = QVBoxLayout(self)
         # Margen izq, sup, der, inf  →  4 px de respiro arriba
         root.setContentsMargins(4, 6, 4, 0)
@@ -86,6 +95,15 @@ class QuestionsWindow(QDialog):
 
         self._load_subjects()
         self._refresh_stats()
+
+    def _edit_question(self, qid: int) -> None:
+        with SessionLocal() as s:
+            q = s.get(m.MCQQuestion, qid)
+        if not q:
+            return
+        dlg = QuestionDialog(self, question=q)
+        if dlg.exec() == QDialog.Accepted:
+            self._load_table()
 
     # ---------------- loaders ----------------
     def _load_subjects(self) -> None:
@@ -127,6 +145,9 @@ class QuestionsWindow(QDialog):
     def _populate_table(self, rows: list[m.MCQQuestion]) -> None:
         self.table.setRowCount(0)
         cur_row = 0
+        COL_EDIT = self.table.columnCount() - 2
+        COL_DELETE = self.table.columnCount() - 1
+
         for q_index, q in enumerate(rows, start=1):
             n_opts = len(q.options) or 1
 
@@ -158,6 +179,14 @@ class QuestionsWindow(QDialog):
             if n_opts > 1:
                 self.table.setSpan(cur_row, 3, n_opts, 1)
 
+            edit_btn = QToolButton(self.table)
+            edit_btn.setIcon(QIcon.fromTheme("document-edit"))
+            edit_btn.setAutoRaise(True)
+            edit_btn.clicked.connect(lambda _, qid=q.id: self._edit_question(qid))
+            self.table.setCellWidget(cur_row, COL_EDIT, edit_btn)
+            if n_opts > 1:
+                self.table.setSpan(cur_row, COL_EDIT, n_opts, 1)
+
             btn_del = QPushButton("🗑️")
             btn_del.setFlat(True)
             btn_del.setCursor(Qt.PointingHandCursor)
@@ -175,9 +204,9 @@ class QuestionsWindow(QDialog):
             """
             )
             btn_del.clicked.connect(lambda _, qid=q.id: self._delete_question(qid))
-            self.table.setCellWidget(cur_row, 7, btn_del)
+            self.table.setCellWidget(cur_row, COL_DELETE, btn_del)
             if n_opts > 1:
-                self.table.setSpan(cur_row, 7, n_opts, 1)
+                self.table.setSpan(cur_row, COL_DELETE, n_opts, 1)
 
             for rel_idx, opt in enumerate(q.options):
                 row = cur_row + rel_idx
@@ -195,6 +224,7 @@ class QuestionsWindow(QDialog):
         """Configure column widths, row heights and window size."""
         col_ref, col_section, col_correct = 1, 3, 5
         COL_DELETE = self.table.columnCount() - 1
+        COL_EDIT = self.table.columnCount() - 2
         COL_EXPLAIN = 6
 
         hh = self.table.horizontalHeader()
@@ -215,6 +245,8 @@ class QuestionsWindow(QDialog):
         icon_w = 48
         hh.setSectionResizeMode(COL_DELETE, QHeaderView.Fixed)
         self.table.setColumnWidth(COL_DELETE, icon_w)
+        hh.setSectionResizeMode(COL_EDIT, QHeaderView.Fixed)
+        self.table.setColumnWidth(COL_EDIT, icon_w)
 
         hh.setSectionResizeMode(COL_EXPLAIN, QHeaderView.Stretch)
 
@@ -241,7 +273,7 @@ class QuestionsWindow(QDialog):
 
         self.table.setEditTriggers(QAbstractItemView.NoEditTriggers)
 
-        extra_width = 160 + 240
+        extra_width = 160 + 240 + 48
         desired_width = max(
             2100 + extra_width,
             sum(self.table.columnWidth(c) for c in range(self.table.columnCount()))
