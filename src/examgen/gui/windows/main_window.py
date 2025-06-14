@@ -130,19 +130,33 @@ class MainWindow(QMainWindow):
 
     def _start_exam(self) -> None:
         from examgen.gui.dialogs.question_dialog import ExamConfigDialog
-        from examgen.gui.widgets.option_table import start_exam
+        from examgen.core.services.exam_service import create_attempt
+        from examgen.gui.pages.exam_page import ExamPage
 
         cfg = ExamConfigDialog.get_config(self)
-        if cfg:
-            try:
-                if start_exam(cfg, parent=self):
-                    print("Examen completado")
-            except ValueError:
-                QMessageBox.warning(
-                    self,
-                    "No hay preguntas",
-                    f'No hay preguntas para la materia "{cfg.subject}"',
-                )
+        if not cfg:
+            return
+        try:
+            attempt = create_attempt(cfg)
+        except ValueError:
+            QMessageBox.warning(
+                self,
+                "No hay preguntas",
+                f'No hay preguntas para la materia "{cfg.subject}"',
+            )
+            return
+
+        def _cleanup() -> None:
+            page = self._page_lookup.pop("exam", None)
+            if page is not None:
+                self.pages.removeWidget(page)
+                page.deleteLater()
+            self._show_page("history")
+
+        page = ExamPage(attempt, on_finished=_cleanup, parent=self)
+        self._page_lookup["exam"] = page
+        self.pages.addWidget(page)
+        self.pages.setCurrentWidget(page)
 
     def _open_settings(self) -> None:
         self._show_page("settings")
