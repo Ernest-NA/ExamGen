@@ -23,15 +23,16 @@ from PySide6.QtWidgets import (
     QAbstractButton,
 )
 
-from examgen.models import Attempt, AttemptQuestion, SessionLocal
-from examgen.services.exam_service import (
+from examgen.core.models import Attempt, AttemptQuestion
+from examgen.core.database import SessionLocal
+from examgen.core.services.exam_service import (
     ExamConfig,
     create_attempt,
     evaluate_attempt,
 )
-from examgen.gui.dialogs import ResultsDialog
+from examgen.gui.dialogs.results_dialog import ResultsDialog
 
-from examgen import models as m
+from examgen.core import models as m
 
 
 def clear_layout(layout: QVBoxLayout | QHBoxLayout) -> None:
@@ -145,7 +146,6 @@ class ExamDialog(QDialog):
         opts_container = QWidget()
         self.vbox_opts = QVBoxLayout(opts_container)
         self.vbox_opts.setContentsMargins(0, 0, 0, 0)
-
 
         nav = QHBoxLayout()
         self.btn_prev = QPushButton("\u2190 Anterior", clicked=self._prev)
@@ -362,7 +362,6 @@ class ExamDialog(QDialog):
         if self.index == len(self.attempt.questions) - 1:
             self._next()
 
-
     def on_toggle_clicked(self) -> None:
         if not self.expl_shown:
             self._save_selection()
@@ -410,6 +409,13 @@ class ExamDialog(QDialog):
             self.timer.stop()
         self._save_selection()
         self.attempt.ended_at = datetime.utcnow()
+
+        from examgen.core.database import SessionLocal
+
+        with SessionLocal() as s:
+            s.merge(self.attempt)
+            s.commit()
+
         self.attempt = evaluate_attempt(self.attempt.id)
 
         def _show() -> None:
@@ -429,11 +435,11 @@ def start_exam(config: ExamConfig, parent: QWidget | None = None) -> bool:
 if __name__ == "__main__":  # pragma: no cover
     import sys
     from PySide6.QtWidgets import QApplication
-    from examgen.gui.dialogs import ExamConfigDialog
+    from examgen.gui.dialogs.question_dialog import ExamConfigDialog
 
     app = QApplication(sys.argv)
     dlg = ExamConfigDialog()
-    if dlg.exec() == dlg.Accepted and dlg.config:
+    if dlg.exec() == QDialog.Accepted and dlg.config:
         start_exam(dlg.config)
         print("Botón Pausar disponible")
         sys.exit(app.exec())

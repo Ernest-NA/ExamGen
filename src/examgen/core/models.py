@@ -6,6 +6,8 @@ Ejecuta:       python -m examgen.models
 para crear / actualizar examgen.db en la raíz del proyecto.
 """
 
+# ruff: noqa: E402
+
 import datetime as _dt
 from enum import Enum as _Enum
 from pathlib import Path
@@ -20,7 +22,6 @@ from sqlalchemy import (
     JSON,
     String,
     Text,
-    text,
     create_engine,
     Enum as SQLAEnum,
     inspect,
@@ -31,14 +32,13 @@ from sqlalchemy.orm import (
     Mapped,
     mapped_column,
     relationship,
-    Session,
-    sessionmaker,
 )
 
 
 class SelectorTypeEnum(str, _Enum):
     ALEATORIO = "ALEATORIO"
     ERRORES = "ERRORES"
+
 
 # -----------------------------------------------------------------------------
 # Declarative base común
@@ -64,6 +64,8 @@ class Base(DeclarativeBase):
         return f"<{self.__class__.__name__} {' '.join(attrs)}>"
 
     # -----------------------------------------------------------------------------
+
+
 # Entidades de dominio
 # -----------------------------------------------------------------------------
 class Subject(Base):
@@ -78,21 +80,24 @@ class Subject(Base):
 
 
 class Question(Base):
-    """Pregunta base: columna `type` discrimina el subtipo. """
+    """Pregunta base: columna `type` discrimina el subtipo."""
 
     __tablename__ = "question"
 
-    prompt:       Mapped[str] = mapped_column(Text(), nullable=False)
-    explanation:  Mapped[str | None] = mapped_column(Text())
-    difficulty:   Mapped[int] = mapped_column(Integer, default=0)  # 0‑5
+    prompt: Mapped[str] = mapped_column(Text(), nullable=False)
+    explanation: Mapped[str | None] = mapped_column(Text())
+    difficulty: Mapped[int] = mapped_column(Integer, default=0)  # 0‑5
 
-    type: Mapped[str]  = mapped_column(String(30), default="MCQ", nullable=False)
+    type: Mapped[str] = mapped_column(String(30), default="MCQ", nullable=False)
     meta: Mapped[dict] = mapped_column(JSON, default=dict)
 
     # relaciones de materia y referencia
-    subject_id:   Mapped[int] = mapped_column(ForeignKey("subject.id"), nullable=False)
-    subject:   Mapped[Subject] = relationship(back_populates="questions",  foreign_keys=[subject_id])
+    subject_id: Mapped[int] = mapped_column(ForeignKey("subject.id"), nullable=False)
+    subject: Mapped[Subject] = relationship(
+        back_populates="questions", foreign_keys=[subject_id]
+    )
     reference: Mapped[str | None] = mapped_column(String(200))
+    section: Mapped[str | None] = mapped_column(String(255))
 
     option_e: Mapped[str | None] = mapped_column(Text())
     is_e_correct: Mapped[bool] = mapped_column(Boolean, default=False)
@@ -120,21 +125,21 @@ class TrueFalseQuestion(Question):
 class AnswerOption(Base):
     __tablename__ = "answer_option"
 
-    text:        Mapped[str] = mapped_column(Text(), nullable=False)
-    answer:      Mapped[str | None] = mapped_column(Text())        # NUEVO
-    explanation: Mapped[str | None] = mapped_column(Text())        # NUEVO
-    is_correct:  Mapped[bool] = mapped_column(Boolean, default=False)
+    text: Mapped[str] = mapped_column(Text(), nullable=False)
+    answer: Mapped[str | None] = mapped_column(Text())  # NUEVO
+    explanation: Mapped[str | None] = mapped_column(Text())  # NUEVO
+    is_correct: Mapped[bool] = mapped_column(Boolean, default=False)
 
     question_id: Mapped[int] = mapped_column(ForeignKey("question.id"), nullable=False)
-    question:    Mapped[Question] = relationship(back_populates="options")
+    question: Mapped[Question] = relationship(back_populates="options")
 
 
 class ExamQuestion(Base):
     __tablename__ = "exam_question"
 
-    exam_id:     Mapped[int] = mapped_column(ForeignKey("exam.id"), nullable=False)
+    exam_id: Mapped[int] = mapped_column(ForeignKey("exam.id"), nullable=False)
     question_id: Mapped[int] = mapped_column(ForeignKey("question.id"), nullable=False)
-    order:       Mapped[int] = mapped_column(Integer, nullable=False)
+    order: Mapped[int] = mapped_column(Integer, nullable=False)
 
     question: Mapped[Question] = relationship()
 
@@ -142,19 +147,19 @@ class ExamQuestion(Base):
 class Exam(Base):
     __tablename__ = "exam"
 
-    title:       Mapped[str] = mapped_column(String(200), nullable=False)
+    title: Mapped[str] = mapped_column(String(200), nullable=False)
     total_score: Mapped[float] = mapped_column(Float, default=0.0)
 
     questions: Mapped[List[ExamQuestion]] = relationship(
         backref="exam", cascade="all, delete-orphan", order_by=ExamQuestion.order
     )
-    attempts:  Mapped[List["Attempt"]] = relationship(back_populates="exam")
+    attempts: Mapped[List["Attempt"]] = relationship(back_populates="exam")
 
 
 class Attempt(Base):
     __tablename__ = "attempt"
 
-    exam_id: Mapped[int] = mapped_column(ForeignKey("exam.id"), nullable=False)
+    exam_id: Mapped[int | None] = mapped_column(ForeignKey("exam.id"), nullable=True)
     subject: Mapped[str] = mapped_column(String(200), nullable=False)
     selector_type: Mapped[SelectorTypeEnum] = mapped_column(
         SQLAEnum(SelectorTypeEnum), nullable=False
@@ -204,8 +209,39 @@ def _add_option_e(engine: Engine) -> None:
         alter.append("ADD COLUMN option_e TEXT")
     if "is_e_correct" not in cols:
         alter.append("ADD COLUMN is_e_correct BOOLEAN DEFAULT 0")
-    for stmt in alter:
-        engine.execute(text(f"ALTER TABLE question {stmt}"))
+    if alter:
+        with engine.begin() as conn:
+            for stmt in alter:
+                conn.exec_driver_sql(f"ALTER TABLE question {stmt}")
+
+
+def _add_section(engine: Engine) -> None:
+    """Add section column to question table if missing."""
+    insp = inspect(engine)
+    cols = {c["name"] for c in insp.get_columns("question")}
+    if "section" not in cols:
+        with engine.begin() as conn:
+            conn.exec_driver_sql(
+                "ALTER TABLE question ADD COLUMN section VARCHAR(255)"
+            )
+
+
+def _make_attempt_exam_nullable(engine: Engine) -> None:
+    """Drop NOT NULL constraint from ``attempt.exam_id`` if present."""
+    with engine.begin() as con:
+        info = con.exec_driver_sql("PRAGMA table_info('attempt')").fetchall()
+        exam_col = next((row for row in info if row[1] == "exam_id"), None)
+        if exam_col and exam_col[3]:
+            Attempt.__table__.c.exam_id.nullable = True
+            cols = ", ".join(row[1] for row in info)
+            con.exec_driver_sql("PRAGMA foreign_keys = OFF")
+            con.exec_driver_sql("ALTER TABLE attempt RENAME TO attempt_old")
+            Attempt.__table__.create(bind=con)
+            con.exec_driver_sql(
+                f"INSERT INTO attempt ({cols}) SELECT {cols} FROM attempt_old"
+            )
+            con.exec_driver_sql("DROP TABLE attempt_old")
+            con.exec_driver_sql("PRAGMA foreign_keys = ON")
 
 
 def _create_examiner_tables(engine: Engine) -> None:
@@ -220,26 +256,26 @@ def _create_examiner_tables(engine: Engine) -> None:
 
     _migrate_attempt_subject_column(engine)
     _add_option_e(engine)
+    _add_section(engine)
+    _make_attempt_exam_nullable(engine)
+
 
 # -----------------------------------------------------------------------------
 # Utilidades de BD
 # -----------------------------------------------------------------------------
 
+
 def get_engine(db_path: str | Path = "examgen.db"):
     return create_engine(f"sqlite:///{db_path}", echo=False, future=True)
 
 
-engine = get_engine()
-SessionLocal = sessionmaker(
-    bind=engine, expire_on_commit=False, future=True
-)
-
-
 def init_db(db_path: str | Path = "examgen.db") -> None:
-    engine = get_engine(db_path)
-    Base.metadata.create_all(engine)        # crea tablas que falten
+    from examgen.core.database import set_engine, get_engine, init_db as _init
 
-    _create_examiner_tables(engine)
+    set_engine(Path(db_path))
+    engine = get_engine()
+
+    _init(engine)
 
     with engine.begin() as con:
         con.exec_driver_sql("PRAGMA foreign_keys = ON")
@@ -250,8 +286,10 @@ def init_db(db_path: str | Path = "examgen.db") -> None:
         }
 
         # columna reference (texto) — solo si no existe ninguna variante
-        if ("reference" not in existing_cols["question"]
-                and "reference_id" not in existing_cols["question"]):
+        if (
+            "reference" not in existing_cols["question"]
+            and "reference_id" not in existing_cols["question"]
+        ):
             con.exec_driver_sql("ALTER TABLE question ADD COLUMN reference TEXT")
 
         # columnas nuevas en answer_option (por si no estaban)
@@ -265,4 +303,3 @@ def init_db(db_path: str | Path = "examgen.db") -> None:
 
 if __name__ == "__main__":
     init_db()
-    _create_examiner_tables(get_engine())

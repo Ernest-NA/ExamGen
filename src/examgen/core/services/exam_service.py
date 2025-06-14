@@ -8,17 +8,8 @@ import random
 from sqlalchemy import select, func
 from sqlalchemy.orm import Session, selectinload, with_polymorphic
 
-from examgen import models as m
-
-from examgen.models import (
-    SessionLocal,
-    Attempt,
-    AttemptQuestion,
-    Question,
-    ExamQuestion,
-    SelectorTypeEnum,
-    Subject,
-)
+from examgen.core import models as m
+from examgen.core.database import SessionLocal
 
 
 @dataclass(slots=True)
@@ -26,7 +17,7 @@ class ExamConfig:
     exam_id: int
     subject: str
     subject_id: int
-    selector_type: SelectorTypeEnum
+    selector_type: m.SelectorTypeEnum
     num_questions: int | None
     error_threshold: int | None
     time_limit: int
@@ -34,28 +25,28 @@ class ExamConfig:
 
 def _select_random(
     session: Session, exam_id: int, limit: int, subject_id: int | None = None
-) -> List[Question]:
+) -> List[m.Question]:
     attempts_sub = (
         select(
-            AttemptQuestion.question_id,
-            func.count(AttemptQuestion.id).label("attempts_count"),
+            m.AttemptQuestion.question_id,
+            func.count(m.AttemptQuestion.id).label("attempts_count"),
         )
-        .group_by(AttemptQuestion.question_id)
+        .group_by(m.AttemptQuestion.question_id)
         .subquery()
     )
     stmt = (
-        select(Question)
-        .join(ExamQuestion, ExamQuestion.question_id == Question.id)
-        .outerjoin(attempts_sub, attempts_sub.c.question_id == Question.id)
-        .filter(ExamQuestion.exam_id == exam_id)
+        select(m.Question)
+        .join(m.ExamQuestion, m.ExamQuestion.question_id == m.Question.id)
+        .outerjoin(attempts_sub, attempts_sub.c.question_id == m.Question.id)
+        .filter(m.ExamQuestion.exam_id == exam_id)
         .order_by(func.coalesce(attempts_sub.c.attempts_count, 0).asc(), func.random())
         .limit(limit)
     )
     questions = list(session.scalars(stmt))
     if not questions and subject_id is not None:
         questions = (
-            session.query(Question)
-            .filter(Question.subject_id == subject_id)
+            session.query(m.Question)
+            .filter(m.Question.subject_id == subject_id)
             .order_by(func.random())
             .limit(limit)
             .all()
@@ -65,34 +56,34 @@ def _select_random(
 
 def _select_by_errors(
     session: Session, exam_id: int, limit: int, subject_id: int | None = None
-) -> List[Question]:
+) -> List[m.Question]:
     error_sub = (
         select(
-            AttemptQuestion.question_id,
-            func.count(AttemptQuestion.id).label("errors_count"),
+            m.AttemptQuestion.question_id,
+            func.count(m.AttemptQuestion.id).label("errors_count"),
         )
-        .where(AttemptQuestion.is_correct.is_(False))
-        .group_by(AttemptQuestion.question_id)
+        .where(m.AttemptQuestion.is_correct.is_(False))
+        .group_by(m.AttemptQuestion.question_id)
         .subquery()
     )
     attempts_sub = (
         select(
-            AttemptQuestion.question_id,
-            func.count(AttemptQuestion.id).label("attempts_count"),
+            m.AttemptQuestion.question_id,
+            func.count(m.AttemptQuestion.id).label("attempts_count"),
         )
-        .group_by(AttemptQuestion.question_id)
+        .group_by(m.AttemptQuestion.question_id)
         .subquery()
     )
     stmt = (
         select(
-            Question,
+            m.Question,
             func.coalesce(error_sub.c.errors_count, 0).label("errors"),
             func.coalesce(attempts_sub.c.attempts_count, 0).label("attempts"),
         )
-        .join(ExamQuestion, ExamQuestion.question_id == Question.id)
-        .outerjoin(error_sub, error_sub.c.question_id == Question.id)
-        .outerjoin(attempts_sub, attempts_sub.c.question_id == Question.id)
-        .filter(ExamQuestion.exam_id == exam_id)
+        .join(m.ExamQuestion, m.ExamQuestion.question_id == m.Question.id)
+        .outerjoin(error_sub, error_sub.c.question_id == m.Question.id)
+        .outerjoin(attempts_sub, attempts_sub.c.question_id == m.Question.id)
+        .filter(m.ExamQuestion.exam_id == exam_id)
         .order_by(
             func.coalesce(error_sub.c.errors_count, 0).desc(),
             func.coalesce(attempts_sub.c.attempts_count, 0).asc(),
@@ -105,27 +96,28 @@ def _select_by_errors(
     return [row.Question for row in results]
 
 
-def create_attempt(config: ExamConfig) -> Attempt:
+def create_attempt(config: ExamConfig) -> m.Attempt:
     """Persist a new Attempt with its questions."""
     with SessionLocal() as session:
         if config.exam_id == 0:
             stmt = (
-                session.query(Question)
-                .join(Subject, Question.subject_id == Subject.id)
-                .filter(func.lower(Subject.name) == config.subject.lower())
+                session.query(m.Question)
+                .join(m.Subject, m.Question.subject_id == m.Subject.id)
+                .filter(func.lower(m.Subject.name) == config.subject.lower())
                 .order_by(func.random())
                 .limit(config.num_questions or 0)
             )
             questions = stmt.all()
             random.shuffle(questions)
             if not questions:
-                raise ValueError(
-                    f'No hay preguntas para la materia "{config.subject}"'
-                )
+                raise ValueError(f'No hay preguntas para la materia "{config.subject}"')
         else:
-            if config.selector_type is SelectorTypeEnum.ALEATORIO:
+            if config.selector_type is m.SelectorTypeEnum.ALEATORIO:
                 questions = _select_random(
-                    session, config.exam_id, config.num_questions or 0, config.subject_id
+                    session,
+                    config.exam_id,
+                    config.num_questions or 0,
+                    config.subject_id,
                 )
             else:
                 threshold = config.error_threshold or 0
@@ -136,9 +128,9 @@ def create_attempt(config: ExamConfig) -> Attempt:
 
             if not questions:
                 questions = (
-                    session.query(Question)
-                    .join(Subject, Question.subject_id == Subject.id)
-                    .filter(func.lower(Subject.name) == config.subject.lower())
+                    session.query(m.Question)
+                    .join(m.Subject, m.Question.subject_id == m.Subject.id)
+                    .filter(func.lower(m.Subject.name) == config.subject.lower())
                     .order_by(func.random())
                     .limit(config.num_questions or 0)
                     .all()
@@ -146,12 +138,10 @@ def create_attempt(config: ExamConfig) -> Attempt:
                 random.shuffle(questions)
 
             if not questions:
-                raise ValueError(
-                    f'No hay preguntas para la materia "{config.subject}"'
-                )
+                raise ValueError(f'No hay preguntas para la materia "{config.subject}"')
 
-        attempt = Attempt(
-            exam_id=config.exam_id,
+        attempt = m.Attempt(
+            exam_id=config.exam_id or None,
             subject=config.subject,
             selector_type=config.selector_type,
             num_questions=config.num_questions,
@@ -162,17 +152,17 @@ def create_attempt(config: ExamConfig) -> Attempt:
         session.add(attempt)
 
         for q in questions:
-            attempt.questions.append(AttemptQuestion(question=q))
+            attempt.questions.append(m.AttemptQuestion(question=q))
 
         session.commit()
 
         q_poly = with_polymorphic(m.Question, "*")
 
         attempt = (
-            session.query(Attempt)
+            session.query(m.Attempt)
             .options(
-                selectinload(Attempt.questions)
-                .selectinload(AttemptQuestion.question.of_type(q_poly))
+                selectinload(m.Attempt.questions)
+                .selectinload(m.AttemptQuestion.question.of_type(q_poly))
                 .selectinload(q_poly.MCQQuestion.options)
             )
             .filter_by(id=attempt.id)
@@ -183,7 +173,7 @@ def create_attempt(config: ExamConfig) -> Attempt:
         return attempt
 
 
-def _compute_score(attempt: Attempt) -> int:
+def _compute_score(attempt: m.Attempt) -> int:
     """Calculate score and update AttemptQuestion entries."""
     total = 0
     for aq in attempt.questions:
@@ -205,28 +195,37 @@ def _compute_score(attempt: Attempt) -> int:
     return total
 
 
-def evaluate_attempt(attempt_id: int) -> Attempt:
+def evaluate_attempt(attempt_id: int) -> m.Attempt:
     """Evaluate an attempt and store the score."""
-    with SessionLocal() as session:  # type: Session
-        session.expire_on_commit = False
-
-        q_poly = with_polymorphic(m.Question, "*")
-
-        stmt = (
-            select(m.Attempt)
-            .where(m.Attempt.id == attempt_id)
-            .options(
-                selectinload(m.Attempt.questions)
-                .selectinload(m.AttemptQuestion.question.of_type(q_poly))
-                .selectinload(q_poly.MCQQuestion.options)
-            )
+    with SessionLocal() as s:
+        attempt = (
+            s.query(m.Attempt)
+            .options(selectinload(m.Attempt.questions))
+            .get(attempt_id)
         )
+        if not attempt:
+            raise ValueError("Attempt not found")
 
-        attempt: m.Attempt = session.execute(stmt).unique().scalar_one()
+        correct = 0
+        for aq in attempt.questions:
+            q = aq.question
+            correct_set = {l for l, opt in zip("ABCDE", q.options) if opt.is_correct}
+            if aq.selected_option:
+                if len(correct_set) == 1:
+                    aq.is_correct = aq.selected_option in correct_set
+                else:
+                    aq.is_correct = set(aq.selected_option) == correct_set
+            else:
+                aq.is_correct = False
+            if aq.is_correct:
+                correct += 1
 
-        attempt.score = _compute_score(attempt)
+        attempt.score = correct
+        if attempt.ended_at is None:
+            attempt.ended_at = datetime.utcnow()
 
-        session.commit()
+        s.commit()
+        s.refresh(attempt)
         return attempt
 
 
@@ -235,7 +234,7 @@ if __name__ == "__main__":
         exam_id=1,
         subject="Demo",
         subject_id=1,
-        selector_type=SelectorTypeEnum.ALEATORIO,
+        selector_type=m.SelectorTypeEnum.ALEATORIO,
         num_questions=3,
         error_threshold=None,
         time_limit=10,
