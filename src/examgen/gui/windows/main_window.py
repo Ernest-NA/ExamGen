@@ -49,6 +49,8 @@ from PySide6.QtWidgets import (
     QMessageBox,
     QWidget,
     QDialog,
+    QStackedWidget,
+    QToolBar,
 )
 
 from examgen.core import models as m
@@ -65,18 +67,36 @@ class MainWindow(QMainWindow):
         self.setWindowTitle("ExamGen")
         self.resize(1280, 720)
 
-        # Referencia opcional a la ventana de preguntas
-        self._questions_win: "QuestionsWindow | None" = None
-
         # Settings y tema actual
         self.settings = settings
         self.current_theme = THEME
         self._apply_theme()
 
-        # Widget central placeholder
-        self.setCentralWidget(
-            QLabel("ExamGen – bienvenido", alignment=Qt.AlignmentFlag.AlignCenter)
-        )
+        # --- stack central ---
+        self.pages = QStackedWidget()
+        self.setCentralWidget(self.pages)
+        self._page_lookup: dict[str, QWidget] = {}
+
+        # --- barra de navegación ---
+        nav = QToolBar("Navegación", self)
+        self.addToolBar(nav)
+
+        def add_page(name: str, widget: QWidget) -> None:
+            idx = self.pages.addWidget(widget)
+            self._page_lookup[name] = widget
+            act = QAction(
+                name.capitalize(),
+                self,
+                triggered=lambda *, i=idx: self.pages.setCurrentIndex(i),
+            )
+            nav.addAction(act)
+
+        # registrar páginas
+        from examgen.gui.pages.questions_page import QuestionsPage
+        add_page("questions", QuestionsPage(self))
+
+        # página inicial
+        self.pages.setCurrentWidget(self._page_lookup["questions"])
 
         # Menú y barra de estado
         self._create_menu_bar()
@@ -172,20 +192,7 @@ class MainWindow(QMainWindow):
         QuestionDialog(self, db_path=DB_PATH).exec()
 
     def _show_questions(self) -> None:
-        from PySide6.QtCore import Qt
-        from examgen.gui.windows.questions_window import QuestionsWindow
-
-        # Si aún no hay ventana o fue destruida, crea una nueva
-        if self._questions_win is None:
-            self._questions_win = QuestionsWindow()
-            self._questions_win.destroyed.connect(
-                lambda _: setattr(self, "_questions_win", None)
-            )
-
-        # Mostrar y activar la ventana existente
-        self._questions_win.show()
-        self._questions_win.raise_()
-        self._questions_win.activateWindow()
+        self.pages.setCurrentWidget(self._page_lookup["questions"])
 
     def _show_history(self) -> None:
         from examgen.gui.dialogs.history_dialog import AttemptsHistoryDialog
