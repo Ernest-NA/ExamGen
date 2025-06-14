@@ -80,7 +80,7 @@ class ExamPage(QWidget):
 
         self.lbl_prompt = QLabel(alignment=Qt.AlignJustify)
         self.lbl_prompt.setWordWrap(True)
-        self.lbl_prompt.setContentsMargins(0, 4, 0, 12)
+        self.lbl_prompt.setContentsMargins(0, 0, 0, 0)
         self.lbl_prompt.setSizePolicy(
             QSizePolicy.Expanding,
             QSizePolicy.Minimum,
@@ -91,8 +91,11 @@ class ExamPage(QWidget):
         opts_container = QWidget()
         self.vbox_opts = QVBoxLayout(opts_container)
         self.vbox_opts.setContentsMargins(0, 0, 0, 0)
+        self.vbox_opts.setSpacing(8)
 
         nav = QHBoxLayout()
+        nav.setContentsMargins(0, 0, 0, 0)
+        nav.setSpacing(0)
         self.btn_prev = QPushButton("\u2190 Anterior", clicked=self._prev)
         self.btn_next = QPushButton("Siguiente \u2192", clicked=self._next)
         nav.addWidget(self.btn_prev)
@@ -100,10 +103,10 @@ class ExamPage(QWidget):
         nav.addWidget(self.btn_next)
 
         container = QWidget()
-        container.setMaximumWidth(850)
+        container.setMaximumWidth(1400)
         container_layout = QVBoxLayout(container)
-        container_layout.setContentsMargins(8, 4, 8, 8)
-        container_layout.setSpacing(4)
+        container_layout.setContentsMargins(0, 0, 0, 0)
+        container_layout.setSpacing(8)
         container_layout.addLayout(header)
         container_layout.addLayout(header2)
         container_layout.addWidget(self.lbl_prompt)
@@ -112,13 +115,14 @@ class ExamPage(QWidget):
 
         scroll = QScrollArea(widgetResizable=True)
         scroll.setFrameShape(QFrame.NoFrame)
-        scroll.setAlignment(Qt.AlignHCenter)
+        scroll.setAlignment(Qt.AlignHCenter | Qt.AlignTop)
+        scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
+        scroll.setVerticalScrollBarPolicy(Qt.ScrollBarAsNeeded)
         scroll.setWidget(container)
 
         root = QVBoxLayout(self)
         root.setContentsMargins(0, 0, 0, 0)
         root.addWidget(scroll)
-        root.setAlignment(scroll, Qt.AlignHCenter)
 
         QShortcut(
             QKeySequence("Ctrl+P"),
