@@ -371,6 +371,15 @@ class ExamPage(QWidget):
             lbl = QLabel(expl, self, objectName="lblExpl")
             lbl.setWordWrap(True)
             lay.addWidget(lbl)
+
+            border = "#4caf50" if is_ok else "#e53935"
+            frame.setStyleSheet(
+                f"border:1px solid {border};"
+                f"background:#141414;"
+                f"border-radius:6px;"
+                f"color:{border};"
+            )
+            lbl.setStyleSheet(f"color:{border};")
             info = OptionWidgetInfo(
                 widget=w,
                 letter=letter,
