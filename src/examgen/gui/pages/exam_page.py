@@ -5,12 +5,15 @@ from datetime import datetime
 from typing import Callable
 import random
 
-from PySide6.QtCore import Qt, QTimer, Slot
-from PySide6.QtGui import QKeySequence, QShortcut, QFont
+from pathlib import Path
+
+from PySide6.QtCore import Qt, QTimer, Slot, QPropertyAnimation
+from PySide6.QtGui import QKeySequence, QShortcut, QFont, QIcon
 from PySide6.QtWidgets import (
     QAbstractButton,
     QButtonGroup,
     QCheckBox,
+    QProgressBar,
     QHBoxLayout,
     QLabel,
     QMessageBox,
@@ -49,6 +52,7 @@ class ExamPage(QWidget):
         parent: QWidget | None = None,
     ) -> None:
         super().__init__(parent)
+        self.setStyleSheet(Path(__file__).with_suffix('.qss').read_text())
         self.attempt = attempt
         self.on_finished = on_finished
         self.remaining_seconds = attempt.time_limit * 60
@@ -68,6 +72,18 @@ class ExamPage(QWidget):
         self.btn_toggle.clicked.connect(self._toggle_expl)
         self.btn_toggle.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Fixed)
 
+        self.btn_prev = QPushButton("\u2190 Anterior", clicked=self._prev)
+        self.btn_next = QPushButton("Siguiente \u2192", clicked=self._next)
+
+        for b, tip in (
+            (self.btn_prev, "Anterior (←)"),
+            (self.btn_next, "Siguiente (→ / Enter)"),
+            (self.btn_pause, "Pausar/Reanudar (P)"),
+            (self.btn_toggle, "Mostrar Explicación (E)"),
+        ):
+            b.setToolTip(tip)
+            b.setAccessibleName(b.text())
+
         header = QHBoxLayout()
         header.setContentsMargins(0, 0, 0, 0)
         header.setSpacing(8)
@@ -86,6 +102,11 @@ class ExamPage(QWidget):
         self.lbl_prompt = QLabel(alignment=Qt.AlignJustify)
         self.lbl_prompt.setWordWrap(True)
         self.lbl_prompt.setContentsMargins(0, 8, 0, 0)
+        f_prompt = QFont()
+        f_prompt.setPointSize(15)
+        f_prompt.setWeight(QFont.DemiBold)
+        self.lbl_prompt.setFont(f_prompt)
+        self.lbl_prompt.setMaximumWidth(960)
         self.lbl_prompt.setSizePolicy(
             QSizePolicy.Expanding,
             QSizePolicy.Minimum,
@@ -103,8 +124,6 @@ class ExamPage(QWidget):
         nav = QHBoxLayout()
         nav.setContentsMargins(0, 0, 0, 0)
         nav.setSpacing(0)
-        self.btn_prev = QPushButton("\u2190 Anterior", clicked=self._prev)
-        self.btn_next = QPushButton("Siguiente \u2192", clicked=self._next)
         nav.addWidget(self.btn_prev)
         nav.addStretch(1)
         nav.addWidget(self.btn_next)
@@ -116,8 +135,26 @@ class ExamPage(QWidget):
         container_layout.setSpacing(8)
         container_layout.addLayout(header)
         container_layout.addLayout(header2)
+        self.progress = QProgressBar(self, textVisible=False)
+        self.progress.setMaximum(len(attempt.questions))
+        self.progress.setFixedHeight(4)
+        self.progress.setStyleSheet(
+            "QProgressBar{background:#333;} "
+            "QProgressBar::chunk{background:#4caf50;}"
+        )
+        container_layout.addWidget(self.progress)
         container_layout.addWidget(self.lbl_prompt)
         container_layout.addWidget(opts_container)
+        self.box_expl = QFrame(objectName="explanationBox")
+        lay_expl = QVBoxLayout(self.box_expl)
+        lay_expl.setContentsMargins(0, 0, 0, 0)
+        self.lbl_expl = QLabel(objectName="explanationLabel")
+        self.lbl_expl.setWordWrap(True)
+        lay_expl.addWidget(self.lbl_expl)
+        self.box_expl.setMaximumHeight(0)
+        self.anim = QPropertyAnimation(self.box_expl, b"maximumHeight", self)
+        self.anim.setDuration(250)
+        container_layout.addWidget(self.box_expl)
         container_layout.addLayout(nav)
 
         scroll = QScrollArea(widgetResizable=True)
@@ -126,6 +163,7 @@ class ExamPage(QWidget):
         scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
         scroll.setVerticalScrollBarPolicy(Qt.ScrollBarAsNeeded)
         scroll.setWidget(container)
+        self.scroll = scroll
 
         root = QVBoxLayout(self)
         root.setContentsMargins(0, 0, 0, 0)
@@ -161,7 +199,14 @@ class ExamPage(QWidget):
         return f"\N{clock face three oclock} {m:02d}:{s:02d}"
 
     def _update_timer(self) -> None:
-        self.lbl_timer.setText(self._fmt(self.remaining_seconds))
+        t = self._fmt(self.remaining_seconds)
+        if self.remaining_seconds < 120:
+            color = "#e53935"
+        elif self.remaining_seconds < 600:
+            color = "#ffb300"
+        else:
+            color = "#ffffff"
+        self.lbl_timer.setText(f"<span style='color:{color}'>{t}</span>")
 
     def _selecciones_actuales(self) -> int:
         """Devuelve cuántas opciones están marcadas ahora mismo."""
@@ -237,6 +282,7 @@ class ExamPage(QWidget):
         self._update_timer()
         total = len(self.attempt.questions)
         self.lbl_progress.setText(f"Pregunta {self.index + 1} / {total}")
+        self.progress.setValue(self.index + 1)
 
         aq = self.attempt.questions[self.index]
         self.current_aq = aq
@@ -254,6 +300,7 @@ class ExamPage(QWidget):
         self.btn_toggle.setText("Revisar Explicación \u25bc")
         self.btn_toggle.setEnabled(False)
         self.btn_next.setEnabled(False)
+        self.lbl_expl.setText(aq.question.explanation or "")
 
         options: list[tuple[str, str, bool, str]] = [
             (
@@ -281,13 +328,15 @@ class ExamPage(QWidget):
             self.group.setExclusive(True)
         for letter, text, is_ok, expl in options:
             w = widget_cls(text, self)
+            w.setObjectName("optionButton")
+            w.setAccessibleName(f"Opcion {letter}")
             if isinstance(w, QRadioButton):
                 self.group.addButton(w)
             frame = QFrame(self)
             frame.setObjectName("explanationBox")
             lay = QVBoxLayout(frame)
             lay.setContentsMargins(0, 0, 0, 0)
-            lbl = QLabel(f"{'\u2705' if is_ok else '\u274c'} {expl}", self)
+            lbl = QLabel(f"{'✅' if is_ok else '❌'} {expl}", self)
             lbl.setObjectName("explanationLabel")
             color = "#4caf50" if is_ok else "#f44336"
             lbl.setStyleSheet(f"color: {color};")
@@ -313,9 +362,15 @@ class ExamPage(QWidget):
                 w.setChecked(letter in (aq.selected_option or ""))
         self.btn_prev.setEnabled(self.index > 0)
         if self.index == total - 1:
-            self.btn_next.setText("Finalizar examen")
+            self.btn_next.setText("Finalizar")
+            self.btn_next.setIcon(QIcon(":/icons/icon_finish.svg"))
+            self.btn_next.setToolTip("Finalizar examen (→ / Enter)")
+            self.btn_next.setAccessibleName(self.btn_next.text())
         else:
             self.btn_next.setText("Siguiente \u2192")
+            self.btn_next.setIcon(QIcon())
+            self.btn_next.setToolTip("Siguiente (→ / Enter)")
+            self.btn_next.setAccessibleName(self.btn_next.text())
 
         # Con radios ya recibimos 'toggled' de cada botón; no duplicar.
         if self.options:
@@ -346,12 +401,21 @@ class ExamPage(QWidget):
             self._apply_colors(self.current_aq)
             self._freeze_options()
             for info in self.options:
-                info.frame_exp.setVisible(bool(info.label_exp.text().strip()))
+                info.frame_exp.setVisible(False)
+            show = True
+        else:
+            show = False
+        h = min(self.lbl_expl.sizeHint().height() + 12, 200)
+        self.anim.setStartValue(0 if show else h)
+        self.anim.setEndValue(h if show else 0)
+        self.anim.start()
+        if show:
             self.expl_shown = True
             self.btn_toggle.setText("Ocultar Explicación \u25b2")
+            QTimer.singleShot(
+                260, lambda: self.scroll.ensureWidgetVisible(self.box_expl)
+            )
         else:
-            for info in self.options:
-                info.frame_exp.setVisible(False)
             self.expl_shown = False
             self.btn_toggle.setText("Revisar Explicación \u25bc")
 
@@ -405,9 +469,11 @@ class ExamPage(QWidget):
             elif info.letter in sel_set:
                 color = "#ff6b6b"  # rojo
             if color:
-                info.widget.setStyleSheet(f"color: {color};")
+                info.widget.setStyleSheet(
+                    f"color: {color}; padding-left:6px;"
+                )
             else:
-                info.widget.setStyleSheet("")
+                info.widget.setStyleSheet("padding-left:6px;")
             info.widget.setText(info.widget.text())
             info.widget.adjustSize()
             info.widget.setAttribute(Qt.WA_TransparentForMouseEvents, True)

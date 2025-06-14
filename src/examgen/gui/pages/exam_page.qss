@@ -1,0 +1,13 @@
+QFrame#explanationBox {
+    border: 1px solid #4caf50;
+    background: #1a1a1a;
+    border-radius: 6px;
+    padding: 4px 8px;
+}
+QLabel#explanationLabel {
+    color: #4caf50;
+    margin-left: 6px;
+}
+QAbstractButton#optionButton:hover {
+    background: #222;
+}
