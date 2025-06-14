@@ -87,6 +87,8 @@ class ExamPage(QWidget):
         )
         self.group = QButtonGroup(self)
         self.options: list[OptionWidgetInfo] = []
+        # Guardaremos aquí todos los widgets de opción
+        self._opciones: list[QAbstractButton] = []
 
         opts_container = QWidget()
         self.vbox_opts = QVBoxLayout(opts_container)
@@ -150,36 +152,31 @@ class ExamPage(QWidget):
     def _update_timer(self) -> None:
         self.lbl_timer.setText(self._fmt(self.remaining_seconds))
 
-    def selecciones_actuales(self) -> int:
+    def _selecciones_actuales(self) -> int:
         """Devuelve cuántas opciones están marcadas ahora mismo."""
-        return sum(1 for i in self.options if i.widget.isChecked())
+        return sum(1 for w in self._opciones if w.isChecked())
 
     @Slot()
     def _actualizar_estado_botones(self) -> None:
-        completado = self.selecciones_actuales() == self.num_correct
+        completado = self._selecciones_actuales() == self.num_correct
         self.btn_toggle.setEnabled(completado and self._has_expl)
         self.btn_next.setEnabled(completado)
 
-    def _update_check_state(self, changed_box: QCheckBox) -> None:
-        sel_boxes = [
-            i
-            for i in self.options
-            if isinstance(i.widget, QCheckBox) and i.widget.isChecked()
-        ]
-        if len(sel_boxes) > self.num_correct:
-            changed_box.setChecked(False)
-            QMessageBox.information(
-                self,
-                "Máximo alcanzado",
-                (
-                    f"Solo puedes elegir {self.num_correct} "
-                    "opciones en esta pregunta."
-                ),
-            )
-            sel_boxes.pop()
-        self._actualizar_estado_botones()
-
-    def _update_radio_state(self) -> None:
+    @Slot()
+    def _on_opcion_toggled(self) -> None:
+        sender = self.sender()
+        if isinstance(sender, QCheckBox):
+            if self._selecciones_actuales() > self.num_correct:
+                sender.setChecked(False)
+                QMessageBox.information(
+                    self,
+                    "Máximo alcanzado",
+                    (
+                        f"Solo puedes elegir {self.num_correct} "
+                        "opciones en esta pregunta."
+                    ),
+                )
+                return
         self._actualizar_estado_botones()
 
     def _set_widgets_enabled(self, enabled: bool) -> None:
@@ -264,7 +261,8 @@ class ExamPage(QWidget):
                 item.widget().deleteLater()
 
         self.options.clear()
-        if widget_cls is QRadioButton:
+        self._opciones.clear()
+        if self.num_correct == 1:
             self.group = QButtonGroup(self)
             self.group.setExclusive(True)
         for letter, text, is_ok, expl in options:
@@ -282,29 +280,24 @@ class ExamPage(QWidget):
             info.label_exp.setObjectName("OptExplanation")
             info.label_exp.setVisible(False)
             self.options.append(info)
+            self._opciones.append(w)
+            w.toggled.connect(self._on_opcion_toggled)
             self.vbox_opts.addWidget(w)
             self.vbox_opts.addWidget(info.label_exp)
             if isinstance(w, QRadioButton):
                 w.setChecked(aq.selected_option == letter)
             else:
                 w.setChecked(letter in (aq.selected_option or ""))
-                w.stateChanged.connect(
-                    lambda _state, b=w: self._update_check_state(b)
-                )
         self.btn_prev.setEnabled(self.index > 0)
         if self.index == total - 1:
             self.btn_next.setText("Finalizar")
         else:
             self.btn_next.setText("Siguiente \u2192")
 
-        if widget_cls is QRadioButton:
-            if self.group:
-                self.group.buttonToggled.connect(self._update_radio_state)
+        if self.num_correct == 1 and self.group:
+            self.group.buttonToggled.connect(self._on_opcion_toggled)
         if self.options:
-            if isinstance(self.options[0].widget, QCheckBox):
-                self._update_check_state(self.options[0].widget)
-            else:
-                self._update_radio_state()
+            self._on_opcion_toggled()
 
     def _toggle_pause(self) -> None:
         if self.timer.isActive():
