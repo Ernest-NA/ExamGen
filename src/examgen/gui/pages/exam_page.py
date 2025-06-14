@@ -85,7 +85,7 @@ class ExamPage(QWidget):
             b.setAccessibleName(b.text())
 
         header = QHBoxLayout()
-        header.setContentsMargins(0, 0, 0, 0)
+        header.setContentsMargins(0, 12, 0, 4)
         header.setSpacing(8)
         header.addWidget(self.lbl_subject)
         header.addStretch(1)
@@ -131,8 +131,8 @@ class ExamPage(QWidget):
         container = QWidget()
         container.setMaximumWidth(1400)
         container_layout = QVBoxLayout(container)
-        container_layout.setContentsMargins(0, 0, 0, 0)
-        container_layout.setSpacing(8)
+        container_layout.setContentsMargins(40, 0, 40, 8)
+        container_layout.setSpacing(12)
         container_layout.addLayout(header)
         container_layout.addLayout(header2)
         self.progress = QProgressBar(self, textVisible=False)
@@ -178,7 +178,7 @@ class ExamPage(QWidget):
         QShortcut(QKeySequence(Qt.Key_Right), self, activated=self._next)
         QShortcut(QKeySequence(Qt.Key_Return), self, activated=self._next)
         QShortcut(QKeySequence(Qt.Key_Enter), self, activated=self._next)
-        QShortcut(QKeySequence("E"), self, activated=self._toggle_expl)
+        QShortcut(QKeySequence("E"), self, activated=self._toggle_expand_current)
         QShortcut(QKeySequence("P"), self, activated=self._toggle_pause)
         QShortcut(
             QKeySequence("Ctrl+Return"),
@@ -237,6 +237,35 @@ class ExamPage(QWidget):
                 )
                 return
         self._actualizar_estado_botones()
+
+    def _toggle_choice(self, btn: QAbstractButton, frame: QFrame) -> None:
+        """Expand or collapse *frame* based on *btn* state."""
+        state = btn.isChecked()
+        end = (
+            min(frame.layout().sizeHint().height() + 8, 250)
+            if state
+            else 0
+        )
+        self._anim_expand(frame, end)
+        if state:
+            QTimer.singleShot(
+                260, lambda: self.scroll.ensureWidgetVisible(frame)
+            )
+        self._actualizar_estado_botones()
+
+    def _anim_expand(self, widget: QFrame, end: int) -> None:
+        anim = QPropertyAnimation(widget, b"maximumHeight", self)
+        anim.setDuration(200)
+        anim.setStartValue(widget.maximumHeight())
+        anim.setEndValue(end)
+        widget.setVisible(True)
+        anim.start(QPropertyAnimation.DeleteWhenStopped)
+
+    def _toggle_expand_current(self) -> None:
+        """Toggle explanation for currently selected options."""
+        for info in self.options:
+            if info.widget.isChecked():
+                self._toggle_choice(info.widget, info.frame_exp)
 
     def _set_widgets_enabled(self, enabled: bool) -> None:
         for info in self.options:
@@ -332,14 +361,12 @@ class ExamPage(QWidget):
             w.setAccessibleName(f"Opcion {letter}")
             if isinstance(w, QRadioButton):
                 self.group.addButton(w)
-            frame = QFrame(self)
-            frame.setObjectName("explanationBox")
+            frame = QFrame(self, objectName="explFrame")
+            frame.setMaximumHeight(0)
             lay = QVBoxLayout(frame)
-            lay.setContentsMargins(0, 0, 0, 0)
-            lbl = QLabel(f"{'✅' if is_ok else '❌'} {expl}", self)
-            lbl.setObjectName("explanationLabel")
-            color = "#4caf50" if is_ok else "#f44336"
-            lbl.setStyleSheet(f"color: {color};")
+            lay.setContentsMargins(6, 4, 6, 4)
+            lay.setSpacing(4)
+            lbl = QLabel(expl, self, objectName="lblExpl")
             lbl.setWordWrap(True)
             lay.addWidget(lbl)
             frame.setVisible(False)
@@ -354,6 +381,9 @@ class ExamPage(QWidget):
             self.options.append(info)
             self._opciones.append(w)
             w.toggled.connect(self._on_opcion_toggled)
+            w.toggled.connect(
+                lambda _, b=w, f=frame: self._toggle_choice(b, f)
+            )
             self.vbox_opts.addWidget(w)
             self.vbox_opts.addWidget(frame)
             if isinstance(w, QRadioButton):
