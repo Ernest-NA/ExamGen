@@ -16,6 +16,8 @@ from PySide6.QtWidgets import (
     QMessageBox,
     QPushButton,
     QRadioButton,
+    QScrollArea,
+    QFrame,
     QSizePolicy,
     QVBoxLayout,
     QWidget,
@@ -97,14 +99,26 @@ class ExamPage(QWidget):
         nav.addStretch(1)
         nav.addWidget(self.btn_next)
 
+        container = QWidget()
+        container.setMaximumWidth(850)
+        container_layout = QVBoxLayout(container)
+        container_layout.setContentsMargins(8, 4, 8, 8)
+        container_layout.setSpacing(4)
+        container_layout.addLayout(header)
+        container_layout.addLayout(header2)
+        container_layout.addWidget(self.lbl_prompt)
+        container_layout.addWidget(opts_container)
+        container_layout.addLayout(nav)
+
+        scroll = QScrollArea(widgetResizable=True)
+        scroll.setFrameShape(QFrame.NoFrame)
+        scroll.setAlignment(Qt.AlignHCenter)
+        scroll.setWidget(container)
+
         root = QVBoxLayout(self)
-        root.setContentsMargins(8, 4, 8, 8)
-        root.setSpacing(4)
-        root.addLayout(header)
-        root.addLayout(header2)
-        root.addWidget(self.lbl_prompt)
-        root.addWidget(opts_container)
-        root.addLayout(nav)
+        root.setContentsMargins(0, 0, 0, 0)
+        root.addWidget(scroll)
+        root.setAlignment(scroll, Qt.AlignHCenter)
 
         QShortcut(
             QKeySequence("Ctrl+P"),
@@ -131,6 +145,11 @@ class ExamPage(QWidget):
 
     def _update_timer(self) -> None:
         self.lbl_timer.setText(self._fmt(self.remaining_seconds))
+
+    def _update_radio_state(self) -> None:
+        checked = any(i.widget.isChecked() for i in self.options)
+        self.btn_next.setEnabled(checked)
+        self.btn_toggle.setEnabled(checked and self._has_expl)
 
     def _update_check_state(self, changed_box: QCheckBox) -> None:
         sel_boxes = [
@@ -161,8 +180,7 @@ class ExamPage(QWidget):
         if enabled:
             self.btn_prev.setEnabled(self.index > 0)
             if isinstance(self.options[0].widget, QRadioButton):
-                self.btn_next.setEnabled(True)
-                self.btn_toggle.setEnabled(self._has_expl)
+                self._update_radio_state()
             else:
                 self._update_check_state(self.options[0].widget)
         else:
@@ -272,8 +290,9 @@ class ExamPage(QWidget):
             self.btn_next.setText("Siguiente \u2192")
 
         if widget_cls is QRadioButton:
-            self.btn_toggle.setEnabled(has_expl)
-            self.btn_next.setEnabled(True)
+            for info in self.options:
+                info.widget.toggled.connect(self._update_radio_state)
+            self._update_radio_state()
         else:
             self._update_check_state(self.options[0].widget)
 
