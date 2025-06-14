@@ -5,7 +5,7 @@ from datetime import datetime
 from typing import Callable
 import random
 
-from PySide6.QtCore import Qt, QTimer
+from PySide6.QtCore import Qt, QTimer, Slot
 from PySide6.QtGui import QKeySequence, QShortcut
 from PySide6.QtWidgets import (
     QAbstractButton,
@@ -150,10 +150,15 @@ class ExamPage(QWidget):
     def _update_timer(self) -> None:
         self.lbl_timer.setText(self._fmt(self.remaining_seconds))
 
-    def _update_radio_state(self) -> None:
-        checked = any(i.widget.isChecked() for i in self.options)
-        self.btn_next.setEnabled(checked)
-        self.btn_toggle.setEnabled(checked and self._has_expl)
+    def selecciones_actuales(self) -> int:
+        """Devuelve cuántas opciones están marcadas ahora mismo."""
+        return sum(1 for i in self.options if i.widget.isChecked())
+
+    @Slot()
+    def _actualizar_estado_botones(self) -> None:
+        completado = self.selecciones_actuales() == self.num_correct
+        self.btn_toggle.setEnabled(completado and self._has_expl)
+        self.btn_next.setEnabled(completado)
 
     def _update_check_state(self, changed_box: QCheckBox) -> None:
         sel_boxes = [
@@ -172,9 +177,10 @@ class ExamPage(QWidget):
                 ),
             )
             sel_boxes.pop()
-        ready = len(sel_boxes) == self.num_correct
-        self.btn_toggle.setEnabled(ready)
-        self.btn_next.setEnabled(ready)
+        self._actualizar_estado_botones()
+
+    def _update_radio_state(self) -> None:
+        self._actualizar_estado_botones()
 
     def _set_widgets_enabled(self, enabled: bool) -> None:
         for info in self.options:
@@ -183,10 +189,7 @@ class ExamPage(QWidget):
             w.setFocusPolicy(Qt.StrongFocus if enabled else Qt.NoFocus)
         if enabled:
             self.btn_prev.setEnabled(self.index > 0)
-            if isinstance(self.options[0].widget, QRadioButton):
-                self._update_radio_state()
-            else:
-                self._update_check_state(self.options[0].widget)
+            self._actualizar_estado_botones()
         else:
             self.btn_prev.setEnabled(False)
             self.btn_next.setEnabled(False)
@@ -263,6 +266,7 @@ class ExamPage(QWidget):
         self.options.clear()
         if widget_cls is QRadioButton:
             self.group = QButtonGroup(self)
+            self.group.setExclusive(True)
         for letter, text, is_ok, expl in options:
             w = widget_cls(text, self)
             if isinstance(w, QRadioButton):
@@ -285,7 +289,7 @@ class ExamPage(QWidget):
             else:
                 w.setChecked(letter in (aq.selected_option or ""))
                 w.stateChanged.connect(
-                    lambda _, b=w: self._update_check_state(b)
+                    lambda _state, b=w: self._update_check_state(b)
                 )
         self.btn_prev.setEnabled(self.index > 0)
         if self.index == total - 1:
@@ -294,11 +298,13 @@ class ExamPage(QWidget):
             self.btn_next.setText("Siguiente \u2192")
 
         if widget_cls is QRadioButton:
-            for info in self.options:
-                info.widget.toggled.connect(self._update_radio_state)
-            self._update_radio_state()
-        else:
-            self._update_check_state(self.options[0].widget)
+            if self.group:
+                self.group.buttonToggled.connect(self._update_radio_state)
+        if self.options:
+            if isinstance(self.options[0].widget, QCheckBox):
+                self._update_check_state(self.options[0].widget)
+            else:
+                self._update_radio_state()
 
     def _toggle_pause(self) -> None:
         if self.timer.isActive():
