@@ -47,7 +47,6 @@ from PySide6.QtWidgets import (
     QMessageBox,
     QWidget,
     QStackedWidget,
-    QToolBar,
 )
 
 from examgen.core import models as m
@@ -74,17 +73,7 @@ class MainWindow(QMainWindow):
         self.setCentralWidget(self.pages)
         self._page_lookup: dict[str, QWidget] = {}
 
-        # --- barra de navegación ---
-        nav = QToolBar("Navegación", self)
-        self.addToolBar(nav)
-
-        for name in ("settings", "questions", "history"):
-            act = QAction(
-                name.capitalize(),
-                self,
-                triggered=lambda _, n=name: self._show_page(n),
-            )
-            nav.addAction(act)
+        # -- las páginas se eligen desde el menú principal --
 
         # página inicial
         self._show_page("questions")
@@ -131,6 +120,13 @@ class MainWindow(QMainWindow):
         )
 
         self.menu_app.aboutToShow.connect(self._warn_if_disabled)
+
+        self._menu_actions = {
+            "config": act_settings,
+            "exam": self.act_exam,
+            "questions": self.act_questions,
+            "history": self.act_history,
+        }
 
     def _start_exam(self) -> None:
         from examgen.gui.dialogs.question_dialog import ExamConfigDialog
@@ -206,7 +202,8 @@ class MainWindow(QMainWindow):
                 return
             self._page_lookup[name] = widget
             self.pages.addWidget(widget)
-        self.pages.setCurrentWidget(self._page_lookup[name])
+        if self.pages.currentWidget() is not self._page_lookup[name]:
+            self.pages.setCurrentWidget(self._page_lookup[name])
 
     # --------------------------------------------------------------------- #
     #  Diálogo de pregunta                                                  #

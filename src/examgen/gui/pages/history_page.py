@@ -13,6 +13,7 @@ from PySide6.QtWidgets import (
     QMessageBox,
     QHeaderView,
     QAbstractItemView,
+    QSizePolicy,
 )
 
 from sqlalchemy.orm import selectinload
@@ -54,6 +55,10 @@ class HistoryPage(QWidget):
         self.btn_clear = QPushButton("Borrar todo", clicked=self._clear_all)
 
         root = QVBoxLayout(self)
+        root.setContentsMargins(0, 0, 0, 0)
+        root.setSpacing(8)
+        self.table.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
+        self.table.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
         root.addWidget(self.table)
         footer = QHBoxLayout()
         footer.addStretch(1)

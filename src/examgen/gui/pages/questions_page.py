@@ -67,7 +67,7 @@ class QuestionsPage(QWidget):
         self.table = QTableWidget(0, len(headers))
         self.table.setHorizontalHeaderLabels(headers)
         hh = self.table.horizontalHeader()
-        hh.setStretchLastSection(True)
+        hh.setSectionResizeMode(QHeaderView.Stretch)
         self.table.verticalHeader().setVisible(False)
         self.table.setWordWrap(True)
         self.table.setShowGrid(True)
@@ -83,8 +83,8 @@ class QuestionsPage(QWidget):
         splitter = QSplitter(Qt.Horizontal, self)
 
         root = QVBoxLayout(self)
-        root.setContentsMargins(8, 8, 8, 8)
-        root.setSpacing(4)
+        root.setContentsMargins(0, 0, 0, 0)
+        root.setSpacing(8)
         root.addLayout(top)
         root.addWidget(splitter)
 
