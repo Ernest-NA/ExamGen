@@ -7,7 +7,14 @@ import random
 
 from pathlib import Path
 
-from PySide6.QtCore import Qt, QTimer, Slot, QPropertyAnimation
+from PySide6.QtCore import (
+    Qt,
+    QTimer,
+    Slot,
+    QPropertyAnimation,
+    QParallelAnimationGroup,
+    QAbstractAnimation,
+)
 from PySide6.QtGui import QKeySequence, QShortcut, QFont, QIcon
 from PySide6.QtWidgets import (
     QAbstractButton,
@@ -61,6 +68,8 @@ class ExamPage(QWidget):
         self._expl_visible = False
         self.num_correct = 0
         self.current_aq: AttemptQuestion | None = None
+        # keep running animations alive to avoid premature GC
+        self._fx_animations: list[QAbstractAnimation] = []
 
         bold = QFont()
         bold.setBold(True)
@@ -224,6 +233,14 @@ class ExamPage(QWidget):
 
     @Slot()
     def _on_opcion_toggled(self) -> None:
+        """Handle option toggled and update related buttons."""
+        # -- 1) enable toggle button ASAP -------------------------------
+        if not self.btn_toggle.isEnabled():
+            sel = sum(w.isChecked() for w in self._opciones)
+            if sel == self.num_correct:
+                self.btn_toggle.setEnabled(True)
+
+        # -- 2) enforce selection limits and update --------------------
         sender = self.sender()
         if isinstance(sender, QCheckBox):
             if self._selecciones_actuales() > self.num_correct:
@@ -433,7 +450,7 @@ class ExamPage(QWidget):
             self._next()
 
     def _toggle_all_expl(self) -> None:
-        """Expande o colapsa todas las explicaciones con animación."""
+        """Show or hide all explanations with a parallel animation."""
         first_time = not self._expl_visible
         self._expl_visible = not self._expl_visible
         if first_time:
@@ -441,27 +458,42 @@ class ExamPage(QWidget):
             self._evaluate_selection(self.current_aq)
             self._apply_colors(self.current_aq)
             self._freeze_options()
-        dur = 220
+
+        grp = QParallelAnimationGroup(self)
+
+        def h_target(fr: QFrame) -> int:
+            return min(fr.layout().sizeHint().height() + 8, 220)
+
         for fr in self._frames_expl:
-            h_target = (
-                min(fr.layout().sizeHint().height() + 8, 220)
-                if self._expl_visible
-                else 0
-            )
             fr.setVisible(True)
-            anim = QPropertyAnimation(fr, b"maximumHeight", self)
-            anim.setDuration(dur)
+            anim = QPropertyAnimation(fr, b"maximumHeight")
+            anim.setDuration(220)
             anim.setStartValue(fr.maximumHeight())
-            anim.setEndValue(h_target)
-            anim.start(QPropertyAnimation.DeleteWhenStopped)
+            anim.setEndValue(h_target(fr) if self._expl_visible else 0)
+            grp.addAnimation(anim)
+
+        self._fx_animations.append(grp)
+
+        def _cleanup() -> None:
+            self._fx_animations.remove(grp)
+            self.btn_toggle.setEnabled(True)
+
+        grp.finished.connect(_cleanup)
+
+        self.btn_toggle.setEnabled(False)
+        self.btn_toggle.setText(
+            "Ocultar Explicación \u25b2"
+            if self._expl_visible
+            else "Revisar Explicación \u25bc"
+        )
+
+        grp.start()
+
         if self._expl_visible:
-            self.btn_toggle.setText("Ocultar Explicación \u25b2")
             QTimer.singleShot(
-                dur + 40,
+                240,
                 lambda: self.scroll.ensureWidgetVisible(self._frames_expl[0]),
             )
-        else:
-            self.btn_toggle.setText("Revisar Explicación \u25bc")
 
     def _prev(self) -> None:
         if self.index == 0:
