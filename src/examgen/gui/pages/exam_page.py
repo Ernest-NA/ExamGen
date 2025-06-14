@@ -158,8 +158,11 @@ class ExamPage(QWidget):
 
     @Slot()
     def _actualizar_estado_botones(self) -> None:
+        # Está completo si el número de selecciones coincide con lo que
+        # pide la pregunta
         completado = self._selecciones_actuales() == self.num_correct
-        self.btn_toggle.setEnabled(completado and self._has_expl)
+        # El alumno debe poder pulsar el botón aunque la explicación esté vacía
+        self.btn_toggle.setEnabled(completado)
         self.btn_next.setEnabled(completado)
 
     @Slot()
@@ -294,8 +297,7 @@ class ExamPage(QWidget):
         else:
             self.btn_next.setText("Siguiente \u2192")
 
-        if self.num_correct == 1 and self.group:
-            self.group.buttonToggled.connect(self._on_opcion_toggled)
+        # Con radios ya recibimos 'toggled' de cada botón; no duplicar.
         if self.options:
             self._on_opcion_toggled()
 
