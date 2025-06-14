@@ -57,7 +57,8 @@ class ExamPage(QWidget):
         self.on_finished = on_finished
         self.remaining_seconds = attempt.time_limit * 60
         self.index = 0
-        self.expl_shown = False
+        self._frames_expl: list[QFrame] = []
+        self._expl_visible = False
         self.num_correct = 0
         self.current_aq: AttemptQuestion | None = None
 
@@ -69,7 +70,7 @@ class ExamPage(QWidget):
         self.lbl_progress = QLabel(alignment=Qt.AlignCenter)
         self.btn_pause = QPushButton("Pausar", clicked=self._toggle_pause)
         self.btn_toggle = QPushButton("Revisar Explicación \u25bc")
-        self.btn_toggle.clicked.connect(self._toggle_expl)
+        self.btn_toggle.clicked.connect(self._toggle_all_expl)
         self.btn_toggle.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Fixed)
 
         self.btn_prev = QPushButton("\u2190 Anterior", clicked=self._prev)
@@ -119,7 +120,7 @@ class ExamPage(QWidget):
         opts_container = QWidget()
         self.vbox_opts = QVBoxLayout(opts_container)
         self.vbox_opts.setContentsMargins(0, 0, 0, 0)
-        self.vbox_opts.setSpacing(8)
+        self.vbox_opts.setSpacing(6)
 
         nav = QHBoxLayout()
         nav.setContentsMargins(0, 0, 0, 0)
@@ -131,8 +132,8 @@ class ExamPage(QWidget):
         container = QWidget()
         container.setMaximumWidth(1400)
         container_layout = QVBoxLayout(container)
-        container_layout.setContentsMargins(40, 0, 40, 8)
-        container_layout.setSpacing(12)
+        container_layout.setContentsMargins(32, 0, 32, 8)
+        container_layout.setSpacing(10)
         container_layout.addLayout(header)
         container_layout.addLayout(header2)
         self.progress = QProgressBar(self, textVisible=False)
@@ -315,7 +316,6 @@ class ExamPage(QWidget):
 
         aq = self.attempt.questions[self.index]
         self.current_aq = aq
-        self.expl_shown = False
         self.lbl_prompt.setText(aq.question.prompt)
         self.lbl_prompt.adjustSize()
         has_expl = bool(
@@ -352,6 +352,7 @@ class ExamPage(QWidget):
 
         self.options.clear()
         self._opciones.clear()
+        self._frames_expl = []
         if self.num_correct == 1:
             self.group = QButtonGroup(self)
             self.group.setExclusive(True)
@@ -362,6 +363,7 @@ class ExamPage(QWidget):
             if isinstance(w, QRadioButton):
                 self.group.addButton(w)
             frame = QFrame(self, objectName="explFrame")
+            frame.setVisible(False)
             frame.setMaximumHeight(0)
             lay = QVBoxLayout(frame)
             lay.setContentsMargins(6, 4, 6, 4)
@@ -369,7 +371,6 @@ class ExamPage(QWidget):
             lbl = QLabel(expl, self, objectName="lblExpl")
             lbl.setWordWrap(True)
             lay.addWidget(lbl)
-            frame.setVisible(False)
             info = OptionWidgetInfo(
                 widget=w,
                 letter=letter,
@@ -381,11 +382,9 @@ class ExamPage(QWidget):
             self.options.append(info)
             self._opciones.append(w)
             w.toggled.connect(self._on_opcion_toggled)
-            w.toggled.connect(
-                lambda _, b=w, f=frame: self._toggle_choice(b, f)
-            )
             self.vbox_opts.addWidget(w)
             self.vbox_opts.addWidget(frame)
+            self._frames_expl.append(frame)
             if isinstance(w, QRadioButton):
                 w.setChecked(aq.selected_option == letter)
             else:
@@ -424,29 +423,35 @@ class ExamPage(QWidget):
         if self.index == len(self.attempt.questions) - 1:
             self._next()
 
-    def _toggle_expl(self) -> None:
-        if not self.expl_shown:
+    def _toggle_all_expl(self) -> None:
+        """Expande o colapsa todas las explicaciones con animación."""
+        first_time = not self._expl_visible
+        self._expl_visible = not self._expl_visible
+        if first_time:
             self._save_selection()
             self._evaluate_selection(self.current_aq)
             self._apply_colors(self.current_aq)
             self._freeze_options()
-            for info in self.options:
-                info.frame_exp.setVisible(False)
-            show = True
-        else:
-            show = False
-        h = min(self.lbl_expl.sizeHint().height() + 12, 200)
-        self.anim.setStartValue(0 if show else h)
-        self.anim.setEndValue(h if show else 0)
-        self.anim.start()
-        if show:
-            self.expl_shown = True
+        dur = 220
+        for fr in self._frames_expl:
+            h_target = (
+                min(fr.layout().sizeHint().height() + 8, 220)
+                if self._expl_visible
+                else 0
+            )
+            fr.setVisible(True)
+            anim = QPropertyAnimation(fr, b"maximumHeight", self)
+            anim.setDuration(dur)
+            anim.setStartValue(fr.maximumHeight())
+            anim.setEndValue(h_target)
+            anim.start(QPropertyAnimation.DeleteWhenStopped)
+        if self._expl_visible:
             self.btn_toggle.setText("Ocultar Explicación \u25b2")
             QTimer.singleShot(
-                260, lambda: self.scroll.ensureWidgetVisible(self.box_expl)
+                dur + 40,
+                lambda: self.scroll.ensureWidgetVisible(self._frames_expl[0]),
             )
         else:
-            self.expl_shown = False
             self.btn_toggle.setText("Revisar Explicación \u25bc")
 
     def _prev(self) -> None:
