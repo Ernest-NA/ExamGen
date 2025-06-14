@@ -6,7 +6,7 @@ from typing import Callable
 import random
 
 from PySide6.QtCore import Qt, QTimer, Slot
-from PySide6.QtGui import QKeySequence, QShortcut
+from PySide6.QtGui import QKeySequence, QShortcut, QFont
 from PySide6.QtWidgets import (
     QAbstractButton,
     QButtonGroup,
@@ -35,6 +35,7 @@ class OptionWidgetInfo:
     letter: str
     is_correct: bool
     explanation: str
+    frame_exp: QFrame
     label_exp: QLabel
 
 
@@ -56,7 +57,10 @@ class ExamPage(QWidget):
         self.num_correct = 0
         self.current_aq: AttemptQuestion | None = None
 
+        bold = QFont()
+        bold.setBold(True)
         self.lbl_subject = QLabel(f"Materia: {attempt.subject}")
+        self.lbl_subject.setFont(bold)
         self.lbl_timer = QLabel(alignment=Qt.AlignRight)
         self.lbl_progress = QLabel(alignment=Qt.AlignCenter)
         self.btn_pause = QPushButton("Pausar", clicked=self._toggle_pause)
@@ -66,6 +70,7 @@ class ExamPage(QWidget):
 
         header = QHBoxLayout()
         header.setContentsMargins(0, 0, 0, 0)
+        header.setSpacing(8)
         header.addWidget(self.lbl_subject)
         header.addStretch(1)
         header.addWidget(self.lbl_progress)
@@ -80,7 +85,7 @@ class ExamPage(QWidget):
 
         self.lbl_prompt = QLabel(alignment=Qt.AlignJustify)
         self.lbl_prompt.setWordWrap(True)
-        self.lbl_prompt.setContentsMargins(0, 0, 0, 0)
+        self.lbl_prompt.setContentsMargins(0, 8, 0, 0)
         self.lbl_prompt.setSizePolicy(
             QSizePolicy.Expanding,
             QSizePolicy.Minimum,
@@ -131,6 +136,12 @@ class ExamPage(QWidget):
             self,
             activated=self._toggle_pause,
         )
+        QShortcut(QKeySequence(Qt.Key_Left), self, activated=self._prev)
+        QShortcut(QKeySequence(Qt.Key_Right), self, activated=self._next)
+        QShortcut(QKeySequence(Qt.Key_Return), self, activated=self._next)
+        QShortcut(QKeySequence(Qt.Key_Enter), self, activated=self._next)
+        QShortcut(QKeySequence("E"), self, activated=self._toggle_expl)
+        QShortcut(QKeySequence("P"), self, activated=self._toggle_pause)
         QShortcut(
             QKeySequence("Ctrl+Return"),
             self,
@@ -147,7 +158,7 @@ class ExamPage(QWidget):
     @staticmethod
     def _fmt(secs: int) -> str:
         m, s = divmod(max(secs, 0), 60)
-        return f"Tiempo: {m:02d}:{s:02d}"
+        return f"\N{clock face three oclock} {m:02d}:{s:02d}"
 
     def _update_timer(self) -> None:
         self.lbl_timer.setText(self._fmt(self.remaining_seconds))
@@ -272,28 +283,37 @@ class ExamPage(QWidget):
             w = widget_cls(text, self)
             if isinstance(w, QRadioButton):
                 self.group.addButton(w)
+            frame = QFrame(self)
+            frame.setObjectName("explanationBox")
+            lay = QVBoxLayout(frame)
+            lay.setContentsMargins(0, 0, 0, 0)
+            lbl = QLabel(f"{'\u2705' if is_ok else '\u274c'} {expl}", self)
+            lbl.setObjectName("explanationLabel")
+            color = "#4caf50" if is_ok else "#f44336"
+            lbl.setStyleSheet(f"color: {color};")
+            lbl.setWordWrap(True)
+            lay.addWidget(lbl)
+            frame.setVisible(False)
             info = OptionWidgetInfo(
                 widget=w,
                 letter=letter,
                 is_correct=is_ok,
                 explanation=expl,
-                label_exp=QLabel(expl, self),
+                frame_exp=frame,
+                label_exp=lbl,
             )
-            info.label_exp.setWordWrap(True)
-            info.label_exp.setObjectName("OptExplanation")
-            info.label_exp.setVisible(False)
             self.options.append(info)
             self._opciones.append(w)
             w.toggled.connect(self._on_opcion_toggled)
             self.vbox_opts.addWidget(w)
-            self.vbox_opts.addWidget(info.label_exp)
+            self.vbox_opts.addWidget(frame)
             if isinstance(w, QRadioButton):
                 w.setChecked(aq.selected_option == letter)
             else:
                 w.setChecked(letter in (aq.selected_option or ""))
         self.btn_prev.setEnabled(self.index > 0)
         if self.index == total - 1:
-            self.btn_next.setText("Finalizar")
+            self.btn_next.setText("Finalizar examen")
         else:
             self.btn_next.setText("Siguiente \u2192")
 
@@ -306,12 +326,14 @@ class ExamPage(QWidget):
             self.timer.stop()
             self._set_widgets_enabled(False)
             self.btn_pause.setText("Reanudar")
+            self.btn_pause.setStyleSheet("background:#757575; color:white;")
         else:
             if self.remaining_seconds <= 0:
                 return
             self.timer.start(1000)
             self._set_widgets_enabled(True)
             self.btn_pause.setText("Pausar")
+            self.btn_pause.setStyleSheet("background:#27c64b; color:white;")
 
     def _finish_shortcut(self) -> None:
         if self.index == len(self.attempt.questions) - 1:
@@ -324,12 +346,12 @@ class ExamPage(QWidget):
             self._apply_colors(self.current_aq)
             self._freeze_options()
             for info in self.options:
-                info.label_exp.setVisible(bool(info.label_exp.text().strip()))
+                info.frame_exp.setVisible(bool(info.label_exp.text().strip()))
             self.expl_shown = True
             self.btn_toggle.setText("Ocultar Explicación \u25b2")
         else:
             for info in self.options:
-                info.label_exp.setVisible(False)
+                info.frame_exp.setVisible(False)
             self.expl_shown = False
             self.btn_toggle.setText("Revisar Explicación \u25bc")
 
