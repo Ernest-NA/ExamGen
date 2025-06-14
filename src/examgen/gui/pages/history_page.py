@@ -157,8 +157,10 @@ class HistoryPage(QWidget):
         ):
             return
         with SessionLocal() as session:
-            session.query(m.Attempt).filter_by(id=aid).delete()
-            session.commit()
+            attempt = session.get(m.Attempt, aid)
+            if attempt:
+                session.delete(attempt)
+                session.commit()
         self._reload_table()
 
     def _clear_all(self) -> None:
@@ -174,6 +176,8 @@ class HistoryPage(QWidget):
         ):
             return
         with SessionLocal() as session:
-            session.query(m.Attempt).delete()
+            attempts = session.query(m.Attempt).all()
+            for attempt in attempts:
+                session.delete(attempt)
             session.commit()
         self._reload_table()
