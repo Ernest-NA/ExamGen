@@ -26,7 +26,8 @@ class AppSettings:
                 data = json.load(f)
 
             if "data_db_path" not in data and "data_dir" in data:
-                data["data_db_path"] = str(Path(data["data_dir"]) / "examgen.db")
+                data_dir = Path(data["data_dir"])
+                data["data_db_path"] = str(data_dir / DEFAULT_DB.name)
 
             valid = {f.name for f in fields(cls)}
             clean = {k: v for k, v in data.items() if k in valid}

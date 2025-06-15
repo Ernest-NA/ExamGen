@@ -1,11 +1,8 @@
 from __future__ import annotations
 
-from pathlib import Path
-from sqlalchemy import create_engine
-
 from sqlalchemy.exc import OperationalError
 
-from examgen.config import AppSettings
+from examgen.core.database import get_engine
 
 requires: set[str] = {"question"}
 provides: set[str] = set()
@@ -13,11 +10,7 @@ provides: set[str] = set()
 
 def run() -> None:
     """Ensure ``section`` column exists in ``question`` table."""
-    db_path = Path(
-        AppSettings.load().data_db_path
-        or Path.home() / "Documents" / "examgen.db"
-    )
-    eng = create_engine(f"sqlite:///{db_path}", future=True)
+    eng = get_engine()
     with eng.begin() as conn:
         cols = {
             row[1]

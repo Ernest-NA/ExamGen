@@ -30,13 +30,14 @@ from PySide6.QtWidgets import (
     QLineEdit,
 )
 
+from examgen.config import DEFAULT_DB
 from examgen.core import models as m
 from examgen.core.database import SessionLocal
 from examgen.core.services.exam_service import ExamConfig
 from examgen.core.models import SelectorTypeEnum
 from sqlalchemy.orm import Session, joinedload, selectinload
 
-DB_PATH = Path("examgen.db")
+DB_PATH = Path(DEFAULT_DB)
 MAX_CHARS = 3000
 MIN_ROWS = 3
 
