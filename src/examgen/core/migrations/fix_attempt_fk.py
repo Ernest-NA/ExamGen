@@ -13,7 +13,7 @@ from sqlalchemy import (
     create_engine,
 )
 
-from examgen.core.settings import AppSettings
+from examgen.config import AppSettings
 
 
 def run() -> None:

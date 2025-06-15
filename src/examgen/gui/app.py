@@ -6,8 +6,13 @@ from pathlib import Path
 
 from PySide6.QtWidgets import QApplication
 
-from examgen.core.database import get_engine, init_db, run_migrations, set_engine
-from examgen.core.settings import settings
+from examgen.core.database import (
+    get_engine,
+    init_db,
+    run_migrations,
+    set_engine,
+)
+from examgen.config import settings
 
 
 db_path = Path(settings.data_db_path or Path.home() / "Documents" / "examgen.db")

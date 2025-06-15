@@ -175,3 +175,9 @@ cython_debug/
 
 # DB files
 *.db
+
+# config y logs locales
+**/__pycache__/
+*.log
+~/.config/ExamGen/
+~/.local/state/ExamGen/

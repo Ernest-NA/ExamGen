@@ -1,15 +1,13 @@
 from __future__ import annotations
 
-from dataclasses import dataclass, asdict
-import dataclasses
+from dataclasses import dataclass, asdict, fields
 import json
-import sys
 from pathlib import Path
+from platformdirs import user_config_dir
 
-SETTINGS_PATH = (
-    Path(getattr(sys, "_MEIPASS", Path(__file__).resolve().parent.parent))
-    / "settings.json"
-)
+CFG_DIR = Path(user_config_dir("ExamGen"))
+CFG_DIR.mkdir(parents=True, exist_ok=True)
+SETTINGS_FILE = CFG_DIR / "settings.json"
 
 
 @dataclass
@@ -20,27 +18,21 @@ class AppSettings:
 
     @classmethod
     def load(cls) -> "AppSettings":
-        if SETTINGS_PATH.exists():
-            with SETTINGS_PATH.open(encoding="utf-8") as f:
+        if SETTINGS_FILE.exists():
+            with SETTINGS_FILE.open(encoding="utf-8") as f:
                 data = json.load(f)
 
-            # --- compatibilidad con versiones anteriores ---
             if "data_db_path" not in data and "data_dir" in data:
                 data["data_db_path"] = str(Path(data["data_dir"]) / "examgen.db")
 
-            # descartar claves desconocidas
-            valid = {f.name for f in dataclasses.fields(cls)}
+            valid = {f.name for f in fields(cls)}
             clean = {k: v for k, v in data.items() if k in valid}
-
             return cls(**clean)
-
         return cls()
 
     def save(self) -> None:
-        with SETTINGS_PATH.open("w", encoding="utf-8") as f:
+        with SETTINGS_FILE.open("w", encoding="utf-8") as f:
             json.dump(asdict(self), f, indent=2)
 
 
-# instancia global reutilizable -------------------------------------------
 settings = AppSettings.load()
-

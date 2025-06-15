@@ -16,7 +16,7 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
-from examgen.core.settings import AppSettings
+from examgen.config import AppSettings
 from examgen.core.database import set_engine
 
 
