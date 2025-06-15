@@ -7,7 +7,7 @@ from sqlalchemy.engine import Engine
 from sqlalchemy.exc import OperationalError
 from sqlalchemy.orm import sessionmaker
 
-from examgen.config import DEFAULT_DB
+from examgen.config import db_path
 from examgen.utils.debug import log
 
 from examgen.core.models import Base, _create_examiner_tables
@@ -22,20 +22,20 @@ if LEGACY_DB.exists() and not DEFAULT_DB.exists():
 if LEGACY_DOCS_DB.exists() and DEFAULT_DB.exists():
     LEGACY_DOCS_DB.unlink()
 
-if not DEFAULT_DB.exists():
-    DEFAULT_DB.touch()
-
-engine = create_engine(f"sqlite:///{DEFAULT_DB}", future=True)
+DB_FILE = db_path()
+DB_FILE.parent.mkdir(parents=True, exist_ok=True)
+DB_FILE.touch(exist_ok=True)
+engine = create_engine(f"sqlite:///{DB_FILE}", future=True)
 SessionLocal = sessionmaker(bind=engine, expire_on_commit=False, future=True)
 
 _engine: Engine | None = engine
 
 
-def set_engine(db_path: Path | None = None) -> None:
+def set_engine(db_file: Path | None = None) -> None:
     """Create and register a new engine bound to ``db_path``."""
     global _engine
 
-    path = db_path or DEFAULT_DB
+    path = db_file or db_path()
 
     if not path.exists():
         if LEGACY_DB.exists():

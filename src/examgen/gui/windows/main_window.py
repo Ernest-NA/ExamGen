@@ -16,8 +16,7 @@ import os
 env_path = Path(__file__).resolve().parents[3] / ".env"
 load_dotenv(env_path)
 
-from examgen.config import settings, DEFAULT_DB
-DB_PATH = Path(settings.data_db_path or DEFAULT_DB)
+from examgen.config import settings, db_path
 LOG_LEVEL = os.getenv("LOG_LEVEL", "WARNING").upper()
 THEME_MAP = {"dark": "Oscuro", "light": "Claro"}
 THEME = THEME_MAP.get(settings.theme, "Oscuro")
@@ -25,7 +24,7 @@ THEME = THEME_MAP.get(settings.theme, "Oscuro")
 logger = logging.getLogger(__name__)
 if LOG_LEVEL == "DEBUG":
     logger.debug("Loaded .env from %s", env_path)
-    logger.debug("DB path: %s", DB_PATH)
+    logger.debug("DB path: %s", db_path())
     logger.debug("Theme  : %s", THEME)
 
 try:
@@ -78,7 +77,7 @@ class MainWindow(QMainWindow):
         # Menú y barra de estado
         self._create_menu_bar()
         self._create_status_bar()
-        self._set_app_actions_enabled(bool(self.settings.data_db_path))
+        self._set_app_actions_enabled(bool(self.settings.db_folder))
 
     # --------------------------------------------------------------------- #
     #  Menú                                                                  #
@@ -233,7 +232,7 @@ class MainWindow(QMainWindow):
     #  Diálogo de pregunta                                                  #
     # --------------------------------------------------------------------- #
     def _open_question_dialog(self) -> None:
-        QuestionDialog(self, db_path=DB_PATH).exec()
+        QuestionDialog(self, db_path=db_path()).exec()
 
     def _show_questions(self) -> None:
         self._show_page("questions")
@@ -246,7 +245,7 @@ class MainWindow(QMainWindow):
 #  Entry-point                                                              #
 # ------------------------------------------------------------------------- #
 def main() -> None:
-    m.init_db(DB_PATH)  # crea BD si no existe
+    m.init_db(db_path())  # crea BD si no existe
 
     app = QApplication(sys.argv)
     apply_app_styles(app)
