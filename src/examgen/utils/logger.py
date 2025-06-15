@@ -18,7 +18,7 @@ def set_logging() -> None:
         log_dir = Path(user_log_dir("ExamGen"))
         log_dir.mkdir(parents=True, exist_ok=True)
         file_h = RotatingFileHandler(
-            log_dir / f"examgen_{datetime.now():%Y%m%d_%H%M}.log",
+            log_dir / f"examgen_{datetime.now():%Y%m%d_%H%M%S}.log",
             maxBytes=1_000_000,
             backupCount=3,
             encoding="utf-8",
