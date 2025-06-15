@@ -1,4 +1,4 @@
-from examgen.core.settings import settings
+from examgen.config import settings
 
 
 def log(msg: str) -> None:

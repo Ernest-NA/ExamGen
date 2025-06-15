@@ -16,18 +16,18 @@ import os
 env_path = Path(__file__).resolve().parents[3] / ".env"
 load_dotenv(env_path)
 
-from examgen.core.settings import settings
+from examgen.config import settings
 DB_HOME = Path.home() / "Documents" / "examgen.db"
 DB_PATH = Path(settings.data_db_path or DB_HOME)
 LOG_LEVEL = os.getenv("LOG_LEVEL", "WARNING").upper()
 THEME_MAP = {"dark": "Oscuro", "light": "Claro"}
 THEME = THEME_MAP.get(settings.theme, "Oscuro")
 
-logging.basicConfig(level=getattr(logging, LOG_LEVEL, logging.WARNING))
+logger = logging.getLogger(__name__)
 if LOG_LEVEL == "DEBUG":
-    print(f"Loaded .env from {env_path}")
-    print(f"DB path: {DB_PATH}")
-    print(f"Theme  : {THEME}")
+    logger.debug("Loaded .env from %s", env_path)
+    logger.debug("DB path: %s", DB_PATH)
+    logger.debug("Theme  : %s", THEME)
 
 try:
     from examgen.config import set_theme  # type: ignore

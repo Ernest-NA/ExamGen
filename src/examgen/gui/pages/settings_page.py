@@ -16,7 +16,7 @@ from PySide6.QtWidgets import (
     QVBoxLayout,
 )
 
-from examgen.core.settings import AppSettings
+from examgen.config import AppSettings
 from examgen.core.database import set_engine
 
 if TYPE_CHECKING:  # pragma: no cover - circular imports only for type hints
