@@ -128,7 +128,10 @@ class MainWindow(QMainWindow):
 
     def _start_exam(self) -> None:
         from examgen.gui.dialogs.question_dialog import ExamConfigDialog
-        from examgen.core.services.exam_service import create_attempt
+        from examgen.core.services.exam_service import (
+            create_attempt,
+            NotEnoughQuestionsError,
+        )
         from examgen.gui.pages.exam_page import ExamPage
 
         cfg = ExamConfigDialog.get_config(self)
@@ -136,6 +139,16 @@ class MainWindow(QMainWindow):
             return
         try:
             attempt = create_attempt(cfg)
+        except NotEnoughQuestionsError as exc:
+            QMessageBox.warning(
+                self,
+                "Preguntas insuficientes",
+                (
+                    f'Solo hay {exc.available} preguntas disponibles para '
+                    f'"{cfg.subject}"'
+                ),
+            )
+            return
         except ValueError:
             QMessageBox.warning(
                 self,
