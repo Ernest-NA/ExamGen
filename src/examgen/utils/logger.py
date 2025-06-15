@@ -25,6 +25,11 @@ def set_logging() -> None:
     console.setFormatter(fmt)
     root.addHandler(console)
 
+    debug_h = logging.StreamHandler(sys.stderr)
+    debug_h.setLevel(logging.DEBUG)
+    debug_h.setFormatter(fmt)
+    root.addHandler(debug_h)
+
     if settings.debug_mode:
         log_dir = Path(user_log_dir("ExamGen"))
         log_dir.mkdir(parents=True, exist_ok=True)
