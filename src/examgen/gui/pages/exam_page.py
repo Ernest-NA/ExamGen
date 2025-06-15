@@ -41,8 +41,9 @@ from examgen.gui.dialogs.results_dialog import ResultsDialog
 from examgen.utils.debug import (
     jlog,
     mark_render_start,
-    render_elapsed,
+    render_elapsed_ms,
 )
+import psutil
 
 
 @dataclass(slots=True)
@@ -267,9 +268,12 @@ class ExamPage(QWidget):
                 )
                 return
         self._actualizar_estado_botones()
+        btn_text = ""
+        if hasattr(sender, "text"):
+            btn_text = str(sender.text())[:40]
         jlog(
             "toggle",
-            btn=getattr(sender, "text", lambda: "")(),
+            btn=btn_text,
             checked=getattr(sender, "isChecked", lambda: False)(),
             sel=self._selecciones_actuales(),
             needed=self.num_correct,
@@ -465,7 +469,9 @@ class ExamPage(QWidget):
             "layout",
             scroll=self.scroll.height(),
             opts_panel=self.opts_panel.height(),
-            render_ms=render_elapsed(),
+            render_ms=render_elapsed_ms(),
+            cpu_pct=psutil.cpu_percent(interval=None),
+            mem_mb=int(psutil.Process().memory_full_info().uss / 1e6),
         )
 
     def _toggle_pause(self) -> None:
