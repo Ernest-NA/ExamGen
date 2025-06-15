@@ -16,6 +16,7 @@ SETTINGS_PATH = (
 class AppSettings:
     theme: str = "dark"
     data_db_path: str | None = None
+    debug_mode: bool = False
 
     @classmethod
     def load(cls) -> "AppSettings":
@@ -38,3 +39,8 @@ class AppSettings:
     def save(self) -> None:
         with SETTINGS_PATH.open("w", encoding="utf-8") as f:
             json.dump(asdict(self), f, indent=2)
+
+
+# instancia global reutilizable -------------------------------------------
+settings = AppSettings.load()
+

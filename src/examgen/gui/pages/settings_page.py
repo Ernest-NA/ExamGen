@@ -7,6 +7,7 @@ from PySide6.QtCore import QStandardPaths, Qt
 from PySide6.QtWidgets import (
     QWidget,
     QComboBox,
+    QCheckBox,
     QFileDialog,
     QFormLayout,
     QHBoxLayout,
@@ -35,6 +36,9 @@ class SettingsPage(QWidget):
         self.cb_theme.addItems(["dark", "light"])
         self.cb_theme.setCurrentText(settings.theme)
 
+        self.chk_debug = QCheckBox("Activar modo depuración")
+        self.chk_debug.setChecked(settings.debug_mode)
+
         self.le_db = QLineEdit(settings.data_db_path or "")
         self.le_db.setReadOnly(True)
         btn_choose = QPushButton("Elegir…", clicked=self._choose_db)
@@ -46,6 +50,7 @@ class SettingsPage(QWidget):
         hb.addWidget(self.le_db)
         hb.addWidget(btn_choose)
         form.addRow("Base de datos:", hb)
+        form.addRow(self.chk_debug)
 
         root = QVBoxLayout(self)
         root.addLayout(form)
@@ -74,6 +79,7 @@ class SettingsPage(QWidget):
     def save_settings(self) -> None:
         self.settings.theme = self.cb_theme.currentText()
         self.settings.data_db_path = self.le_db.text() or None
+        self.settings.debug_mode = self.chk_debug.isChecked()
         self.settings.save()
         if self.settings.data_db_path:
             set_engine(Path(self.settings.data_db_path))
