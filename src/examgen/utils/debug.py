@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from datetime import datetime
 import json
-import sys
+import logging
 import time
 
 from examgen.config import settings
@@ -16,7 +16,9 @@ def jlog(evt: str, **extra: object) -> None:
         return
     now = datetime.now().isoformat(timespec="milliseconds")
     rec = {"ts": now, "evt": evt, **extra}
-    print(json.dumps(rec, ensure_ascii=False), file=sys.stderr)
+    logging.getLogger("examgen").debug(
+        json.dumps(rec, ensure_ascii=False)
+    )
 
 
 def log(msg: str) -> None:

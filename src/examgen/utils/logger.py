@@ -1,11 +1,18 @@
 from __future__ import annotations
 
 import logging
-import sys
 from datetime import datetime
 from logging.handlers import RotatingFileHandler
 from pathlib import Path
 from platformdirs import user_log_dir
+
+
+class _Null(logging.Handler):
+    """Handler that discards all records."""
+
+    def emit(self, record: logging.LogRecord) -> None:  # noqa: D401
+        """Do nothing."""
+        pass
 
 
 def set_logging() -> None:
@@ -22,8 +29,11 @@ def set_logging() -> None:
             log_dir / f"examgen_{datetime.now():%Y%m%d_%H%M}.log",
             maxBytes=1_000_000,
             backupCount=3,
+            encoding="utf-8",
         )
         file_h.setLevel(logging.DEBUG)
         root.addHandler(file_h)
-
-    root.setLevel(logging.DEBUG if settings.debug_mode else logging.CRITICAL)
+        root.setLevel(logging.DEBUG)
+    else:
+        root.addHandler(_Null())
+        root.setLevel(logging.CRITICAL)
