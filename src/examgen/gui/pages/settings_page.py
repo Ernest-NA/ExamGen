@@ -3,7 +3,7 @@ from __future__ import annotations
 from pathlib import Path
 from typing import TYPE_CHECKING
 
-from PySide6.QtCore import QStandardPaths, Qt
+from PySide6.QtCore import Qt
 from PySide6.QtWidgets import (
     QWidget,
     QComboBox,
@@ -16,7 +16,7 @@ from PySide6.QtWidgets import (
     QVBoxLayout,
 )
 
-from examgen.config import AppSettings, DEFAULT_DB
+from examgen.config import AppSettings, db_path
 from examgen.utils.debug import log
 from examgen.core.database import set_engine
 
@@ -41,15 +41,15 @@ class SettingsPage(QWidget):
         self.chk_debug.setChecked(settings.debug_mode)
         self.chk_debug.stateChanged.connect(self._on_debug_toggled)
 
-        self.le_db = QLineEdit(settings.data_db_path or "")
-        self.le_db.setReadOnly(True)
-        btn_choose = QPushButton("Elegir…", clicked=self._choose_db)
+        self.dir_edit = QLineEdit(settings.db_folder or "")
+        self.dir_edit.setReadOnly(True)
+        btn_choose = QPushButton("…", clicked=self._pick_db_dir)
         btn_save = QPushButton("Guardar", clicked=self.save_settings)
 
         form = QFormLayout()
         form.addRow("Tema:", self.cb_theme)
         hb = QHBoxLayout()
-        hb.addWidget(self.le_db)
+        hb.addWidget(self.dir_edit)
         hb.addWidget(btn_choose)
         form.addRow("Base de datos:", hb)
         form.addRow(self.chk_debug)
@@ -59,38 +59,28 @@ class SettingsPage(QWidget):
         root.addWidget(btn_save, alignment=Qt.AlignRight)
 
     # ------------------------------------------------------------------
-    def _choose_db(self) -> None:
-        start_dir = (
-            Path(self.settings.data_db_path).parent
-            if self.settings.data_db_path
-            else Path(
-                QStandardPaths.writableLocation(
-                    QStandardPaths.DocumentsLocation
-                )
-            )
+    def _pick_db_dir(self) -> None:
+        d = QFileDialog.getExistingDirectory(
+            self, "Seleccionar carpeta para BD"
         )
-        path = QFileDialog.getExistingDirectory(
-            self,
-            "Seleccionar carpeta de datos",
-            str(start_dir),
-        )
-        if not path:
-            return
-        self.le_db.setText(str(Path(path) / DEFAULT_DB.name))
+        if d:
+            self.dir_edit.setText(d)
 
     def save_settings(self) -> None:
+        import examgen.config as cfg
+
         self.settings.theme = self.cb_theme.currentText()
-        self.settings.data_db_path = self.le_db.text() or None
+        self.settings.db_folder = self.dir_edit.text() or None
         self.settings.debug_mode = self.chk_debug.isChecked()
         self.settings.save()
-        if self.settings.data_db_path:
-            set_engine(Path(self.settings.data_db_path))
+        cfg.db_folder = self.settings.db_folder
+        set_engine(db_path())
         win = self.window()
         from examgen.gui.windows.main_window import MainWindow as MW
 
         if isinstance(win, MW):
             win._apply_theme()
-            win._set_app_actions_enabled(bool(self.settings.data_db_path))
+            win._set_app_actions_enabled(bool(self.settings.db_folder))
 
     def _on_debug_toggled(self, state: int) -> None:
         self.settings.debug_mode = bool(state)

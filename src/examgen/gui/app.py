@@ -12,14 +12,14 @@ from examgen.core.database import (
     run_migrations,
     set_engine,
 )
-from examgen.config import settings, DEFAULT_DB
+from examgen.config import settings, db_path
 
 
-db_path = Path(settings.data_db_path or DEFAULT_DB)
-db_path.parent.mkdir(parents=True, exist_ok=True)
-set_engine(db_path)
+db_file = db_path()
+db_file.parent.mkdir(parents=True, exist_ok=True)
+set_engine(db_file)
 run_migrations()
-if db_path.exists() or settings.data_db_path is None:
+if db_file.exists() or settings.db_folder is None:
     init_db(get_engine())
 
 
