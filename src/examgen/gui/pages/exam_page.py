@@ -4,6 +4,7 @@ from dataclasses import dataclass
 from datetime import datetime
 from typing import Callable
 import random
+import time
 
 from pathlib import Path
 
@@ -37,7 +38,11 @@ from examgen.core.models import Attempt, AttemptQuestion
 from examgen.core.database import SessionLocal
 from examgen.core.services.exam_service import evaluate_attempt
 from examgen.gui.dialogs.results_dialog import ResultsDialog
-from examgen.utils.debug import log
+from examgen.utils.debug import (
+    jlog,
+    mark_render_start,
+    render_elapsed,
+)
 
 
 @dataclass(slots=True)
@@ -240,8 +245,9 @@ class ExamPage(QWidget):
     @Slot()
     def _on_opcion_toggled(self) -> None:
         """Handle option toggled and update related buttons."""
+        before = self.btn_toggle.isEnabled()
         # -- 1) enable toggle button ASAP -------------------------------
-        if not self.btn_toggle.isEnabled():
+        if not before:
             sel = sum(w.isChecked() for w in self._opciones)
             if sel == self.num_correct:
                 self.btn_toggle.setEnabled(True)
@@ -261,6 +267,15 @@ class ExamPage(QWidget):
                 )
                 return
         self._actualizar_estado_botones()
+        jlog(
+            "toggle",
+            btn=getattr(sender, "text", lambda: "")(),
+            checked=getattr(sender, "isChecked", lambda: False)(),
+            sel=self._selecciones_actuales(),
+            needed=self.num_correct,
+            btn_before=before,
+            btn_after=self.btn_toggle.isEnabled(),
+        )
 
     def _toggle_choice(self, btn: QAbstractButton, frame: QFrame) -> None:
         """Expand or collapse *frame* based on *btn* state."""
@@ -333,6 +348,7 @@ class ExamPage(QWidget):
     # ------------------------ nav & display ----------------------------
     def _load_question(self) -> None:
         self._update_timer()
+        mark_render_start()
         total = len(self.attempt.questions)
         self.lbl_progress.setText(f"Pregunta {self.index + 1} / {total}")
         self.progress.setValue(self.index + 1)
@@ -340,8 +356,12 @@ class ExamPage(QWidget):
         aq = self.attempt.questions[self.index]
         self.current_aq = aq
         q = aq.question
-        log(
-            f"Pregunta cargada: ID={q.id}, tipo={q.type}, opciones={len(q.options)}"
+        jlog(
+            "load_q",
+            q_id=q.id,
+            q_idx=self.index + 1,
+            q_total=total,
+            opts=len(q.options),
         )
         self.lbl_prompt.setText(q.prompt)
         self.lbl_prompt.adjustSize()
@@ -441,8 +461,11 @@ class ExamPage(QWidget):
         if self.options:
             self._on_opcion_toggled()
 
-        log(
-            f"Layout: scroll={self.scroll.height()} px, opciones={self.opts_panel.height()} px"
+        jlog(
+            "layout",
+            scroll=self.scroll.height(),
+            opts_panel=self.opts_panel.height(),
+            render_ms=render_elapsed(),
         )
 
     def _toggle_pause(self) -> None:
@@ -475,7 +498,6 @@ class ExamPage(QWidget):
 
     def _toggle_all_expl(self) -> None:
         """Show or hide all explanations with a parallel animation."""
-        log("Botón 'Revisar Explicación' pulsado")
         first_time = not self._expl_visible
         self._expl_visible = not self._expl_visible
         if first_time:
@@ -497,15 +519,17 @@ class ExamPage(QWidget):
 
         self._fx_animations.append(grp)
 
+        start = time.perf_counter()
+
         def _cleanup() -> None:
             self._fx_animations.remove(grp)
             self.btn_toggle.setEnabled(True)
-            if self._expl_visible:
-                log(
-                    f"Explicación mostrada: altura={self._frames_expl[0].height()} px"
-                )
-            else:
-                log("Explicación oculta")
+            anim_ms = int((time.perf_counter() - start) * 1000)
+            jlog(
+                "show_expl" if self._expl_visible else "hide_expl",
+                anim_ms=anim_ms,
+                exp_target=[f.sizeHint().height() for f in self._frames_expl],
+            )
 
         grp.finished.connect(_cleanup)
 
