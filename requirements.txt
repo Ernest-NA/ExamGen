@@ -25,3 +25,4 @@ black>=24.4
 mypy>=1.10
 pydantic>=2.6
 faker>=25.2
+psutil>=5.9
