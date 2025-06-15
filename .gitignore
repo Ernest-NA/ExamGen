@@ -173,11 +173,8 @@ cython_debug/
 # PyPI configuration file
 .pypirc
 
-# DB files
+# directorio de config/log locales
+**/ExamGen/
 *.db
-
-# config y logs locales
 **/__pycache__/
 *.log
-~/.config/ExamGen/
-~/.local/state/ExamGen/
