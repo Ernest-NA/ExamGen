@@ -36,6 +36,7 @@ def _select_random(
     )
     stmt = (
         select(m.Question)
+        .distinct(m.Question.id)
         .join(m.ExamQuestion, m.ExamQuestion.question_id == m.Question.id)
         .outerjoin(attempts_sub, attempts_sub.c.question_id == m.Question.id)
         .filter(m.ExamQuestion.exam_id == exam_id)
@@ -80,6 +81,7 @@ def _select_by_errors(
             func.coalesce(error_sub.c.errors_count, 0).label("errors"),
             func.coalesce(attempts_sub.c.attempts_count, 0).label("attempts"),
         )
+        .distinct(m.Question.id)
         .join(m.ExamQuestion, m.ExamQuestion.question_id == m.Question.id)
         .outerjoin(error_sub, error_sub.c.question_id == m.Question.id)
         .outerjoin(attempts_sub, attempts_sub.c.question_id == m.Question.id)
@@ -108,7 +110,6 @@ def create_attempt(config: ExamConfig) -> m.Attempt:
                 .limit(config.num_questions or 0)
             )
             questions = stmt.all()
-            random.shuffle(questions)
             if not questions:
                 raise ValueError(f'No hay preguntas para la materia "{config.subject}"')
         else:
@@ -124,7 +125,6 @@ def create_attempt(config: ExamConfig) -> m.Attempt:
                 questions = _select_by_errors(
                     session, config.exam_id, threshold, config.subject_id
                 )
-            random.shuffle(questions)
 
             if not questions:
                 questions = (
@@ -135,10 +135,13 @@ def create_attempt(config: ExamConfig) -> m.Attempt:
                     .limit(config.num_questions or 0)
                     .all()
                 )
-                random.shuffle(questions)
 
             if not questions:
                 raise ValueError(f'No hay preguntas para la materia "{config.subject}"')
+
+        # Remove duplicates and shuffle final question list
+        questions = list({q.id: q for q in questions}.values())
+        random.shuffle(questions)
 
         attempt = m.Attempt(
             exam_id=config.exam_id or None,
