@@ -17,6 +17,7 @@ from PySide6.QtWidgets import (
 )
 
 from examgen.config import AppSettings, DEFAULT_DB
+from examgen.utils.debug import log
 from examgen.core.database import set_engine
 
 if TYPE_CHECKING:  # pragma: no cover - circular imports only for type hints
@@ -38,6 +39,7 @@ class SettingsPage(QWidget):
 
         self.chk_debug = QCheckBox("Activar modo depuración")
         self.chk_debug.setChecked(settings.debug_mode)
+        self.chk_debug.stateChanged.connect(self._on_debug_toggled)
 
         self.le_db = QLineEdit(settings.data_db_path or "")
         self.le_db.setReadOnly(True)
@@ -89,3 +91,12 @@ class SettingsPage(QWidget):
         if isinstance(win, MW):
             win._apply_theme()
             win._set_app_actions_enabled(bool(self.settings.data_db_path))
+
+    def _on_debug_toggled(self, state: int) -> None:
+        self.settings.debug_mode = bool(state)
+        from examgen.utils.logger import set_logging
+
+        set_logging()
+        log(
+            f"Modo depuraci\u00f3n {'activo' if state else 'inactivo'}"
+        )
