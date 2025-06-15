@@ -348,6 +348,14 @@ class ExamPage(QWidget):
     # ------------------------ nav & display ----------------------------
     def _load_question(self) -> None:
         self._update_timer()
+        # -- reset explanation state when showing a new question ---------
+        self._expl_visible = False
+        self.btn_toggle.setText("Revisar Explicación \u25bc")
+        self.btn_toggle.setEnabled(False)
+        for fr in getattr(self, "_frames_expl", []):
+            fr.setMaximumHeight(0)
+            fr.setVisible(False)
+
         mark_render_start()
         total = len(self.attempt.questions)
         self.lbl_progress.setText(f"Pregunta {self.index + 1} / {total}")
