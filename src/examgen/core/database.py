@@ -8,6 +8,7 @@ from sqlalchemy.exc import OperationalError
 from sqlalchemy.orm import sessionmaker
 
 from examgen.utils.debug import log
+from examgen.config import DEFAULT_DB
 
 from examgen.core.models import Base, _create_examiner_tables
 
@@ -15,14 +16,25 @@ from examgen.core.models import Base, _create_examiner_tables
 _engine: Engine | None = None
 SessionLocal = sessionmaker(expire_on_commit=False, future=True)
 
+LEGACY_DB = Path("examgen.db")
 
-def set_engine(db_path: Path) -> None:
+
+def set_engine(db_path: Path | None = None) -> None:
     """Create and register a new engine bound to ``db_path``."""
     global _engine
-    _engine = create_engine(f"sqlite:///{db_path}", echo=False, future=True)
+
+    path = db_path or DEFAULT_DB
+
+    if not path.exists():
+        if LEGACY_DB.exists():
+            LEGACY_DB.rename(path)
+        else:
+            path.touch()
+            log(f"DB creada en {path}")
+
+    _engine = create_engine(f"sqlite:///{path}", echo=False, future=True)
     SessionLocal.configure(bind=_engine)
-    if db_path.exists():
-        init_db(_engine)
+    init_db(_engine)
 
 
 def get_engine() -> Engine:

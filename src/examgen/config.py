@@ -7,6 +7,9 @@ from platformdirs import user_config_dir
 
 CFG_DIR = Path(user_config_dir("ExamGen"))
 CFG_DIR.mkdir(parents=True, exist_ok=True)
+
+# Base de datos inicial (vacía) si no existe ninguna
+DEFAULT_DB = CFG_DIR / "examgen_initial_empty.db"
 SETTINGS_FILE = CFG_DIR / "settings.json"
 
 
