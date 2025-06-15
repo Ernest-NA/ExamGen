@@ -129,7 +129,7 @@ class ExamPage(QWidget):
         opts_container = QWidget()
         self.vbox_opts = QVBoxLayout(opts_container)
         self.vbox_opts.setContentsMargins(0, 0, 0, 0)
-        self.vbox_opts.setSpacing(6)
+        self.vbox_opts.setSpacing(2)  # evita saltos perceptibles
 
         nav = QHBoxLayout()
         nav.setContentsMargins(0, 0, 0, 0)
@@ -188,7 +188,11 @@ class ExamPage(QWidget):
         QShortcut(QKeySequence(Qt.Key_Right), self, activated=self._next)
         QShortcut(QKeySequence(Qt.Key_Return), self, activated=self._next)
         QShortcut(QKeySequence(Qt.Key_Enter), self, activated=self._next)
-        QShortcut(QKeySequence("E"), self, activated=self._toggle_expand_current)
+        QShortcut(
+            QKeySequence("E"),
+            self,
+            activated=self._toggle_expand_current,
+        )
         QShortcut(QKeySequence("P"), self, activated=self._toggle_pause)
         QShortcut(
             QKeySequence("Ctrl+Return"),
@@ -449,6 +453,16 @@ class ExamPage(QWidget):
         if self.index == len(self.attempt.questions) - 1:
             self._next()
 
+    # util ----------------------------------------------------------------
+    def _frame_target_height(self, fr: QFrame) -> int:
+        """Return a valid target height for *fr* even when hidden."""
+        old_max = fr.maximumHeight()
+        fr.setMaximumHeight(16777215)
+        fr.layout().activate()
+        height = fr.sizeHint().height()
+        fr.setMaximumHeight(old_max)
+        return min(height + 4, 250)
+
     def _toggle_all_expl(self) -> None:
         """Show or hide all explanations with a parallel animation."""
         first_time = not self._expl_visible
@@ -460,9 +474,7 @@ class ExamPage(QWidget):
             self._freeze_options()
 
         grp = QParallelAnimationGroup(self)
-
-        def h_target(fr: QFrame) -> int:
-            return min(fr.layout().sizeHint().height() + 8, 220)
+        h_target = self._frame_target_height
 
         for fr in self._frames_expl:
             fr.setVisible(True)
