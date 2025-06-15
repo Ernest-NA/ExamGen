@@ -22,6 +22,7 @@ from sqlalchemy import (
     JSON,
     String,
     Text,
+    UniqueConstraint,
     create_engine,
     Enum as SQLAEnum,
     inspect,
@@ -136,6 +137,7 @@ class AnswerOption(Base):
 
 class ExamQuestion(Base):
     __tablename__ = "exam_question"
+    __table_args__ = (UniqueConstraint("exam_id", "question_id"),)
 
     exam_id: Mapped[int] = mapped_column(ForeignKey("exam.id"), nullable=False)
     question_id: Mapped[int] = mapped_column(ForeignKey("question.id"), nullable=False)
