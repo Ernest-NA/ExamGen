@@ -16,7 +16,7 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
-from examgen.config import AppSettings
+from examgen.config import AppSettings, DEFAULT_DB
 from examgen.core.database import set_engine
 
 
@@ -66,7 +66,7 @@ class SettingsDialog(QDialog):
         )
         if not path:
             return
-        self.le_db.setText(str(Path(path) / "examgen.db"))
+        self.le_db.setText(str(Path(path) / DEFAULT_DB.name))
 
     def accept(self) -> None:  # type: ignore[override]
         self.settings.theme = self.cb_theme.currentText()

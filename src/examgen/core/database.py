@@ -14,9 +14,13 @@ from examgen.core.models import Base, _create_examiner_tables
 
 
 LEGACY_DB = Path("examgen.db")
+LEGACY_DOCS_DB = Path.home() / "Documents" / "examgen.db"
 
 if LEGACY_DB.exists() and not DEFAULT_DB.exists():
     LEGACY_DB.rename(DEFAULT_DB)
+
+if LEGACY_DOCS_DB.exists() and DEFAULT_DB.exists():
+    LEGACY_DOCS_DB.unlink()
 
 if not DEFAULT_DB.exists():
     DEFAULT_DB.touch()

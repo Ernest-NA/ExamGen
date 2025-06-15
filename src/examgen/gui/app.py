@@ -12,10 +12,10 @@ from examgen.core.database import (
     run_migrations,
     set_engine,
 )
-from examgen.config import settings
+from examgen.config import settings, DEFAULT_DB
 
 
-db_path = Path(settings.data_db_path or Path.home() / "Documents" / "examgen.db")
+db_path = Path(settings.data_db_path or DEFAULT_DB)
 db_path.parent.mkdir(parents=True, exist_ok=True)
 set_engine(db_path)
 run_migrations()

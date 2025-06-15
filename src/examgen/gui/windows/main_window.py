@@ -16,9 +16,8 @@ import os
 env_path = Path(__file__).resolve().parents[3] / ".env"
 load_dotenv(env_path)
 
-from examgen.config import settings
-DB_HOME = Path.home() / "Documents" / "examgen.db"
-DB_PATH = Path(settings.data_db_path or DB_HOME)
+from examgen.config import settings, DEFAULT_DB
+DB_PATH = Path(settings.data_db_path or DEFAULT_DB)
 LOG_LEVEL = os.getenv("LOG_LEVEL", "WARNING").upper()
 THEME_MAP = {"dark": "Oscuro", "light": "Claro"}
 THEME = THEME_MAP.get(settings.theme, "Oscuro")

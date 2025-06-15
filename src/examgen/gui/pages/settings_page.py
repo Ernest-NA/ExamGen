@@ -16,7 +16,7 @@ from PySide6.QtWidgets import (
     QVBoxLayout,
 )
 
-from examgen.config import AppSettings
+from examgen.config import AppSettings, DEFAULT_DB
 from examgen.core.database import set_engine
 
 if TYPE_CHECKING:  # pragma: no cover - circular imports only for type hints
@@ -74,7 +74,7 @@ class SettingsPage(QWidget):
         )
         if not path:
             return
-        self.le_db.setText(str(Path(path) / "examgen.db"))
+        self.le_db.setText(str(Path(path) / DEFAULT_DB.name))
 
     def save_settings(self) -> None:
         self.settings.theme = self.cb_theme.currentText()
