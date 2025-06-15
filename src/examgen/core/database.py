@@ -2,9 +2,12 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from sqlalchemy import create_engine
+from sqlalchemy import create_engine, inspect
 from sqlalchemy.engine import Engine
+from sqlalchemy.exc import OperationalError
 from sqlalchemy.orm import sessionmaker
+
+from examgen.utils.debug import log
 
 from examgen.core.models import Base, _create_examiner_tables
 
@@ -56,9 +59,20 @@ def init_db(engine: Engine) -> None:
 
 
 def run_migrations() -> None:
-    """Execute optional migration scripts."""
-    from examgen.core.migrations.fix_attempt_fk import run as fix_fk
-    from examgen.core.migrations.add_section import run as add_section
+    """Execute optional migration scripts if dependencies are met."""
+    from .migrations import MIGRATIONS
 
-    fix_fk()
-    add_section()
+    engine = get_engine()
+    inspector = inspect(engine)
+    existing_tables = set(inspector.get_table_names())
+
+    for mig in MIGRATIONS:
+        if mig.requires.issubset(existing_tables):
+            try:
+                mig.run()
+                existing_tables.update(mig.provides)
+            except OperationalError as exc:
+                log(f"Migration {mig.__name__} failed: {exc}")
+        else:
+            missing = mig.requires - existing_tables
+            log(f"Skipping {mig.__name__}: unmet deps {missing}")
