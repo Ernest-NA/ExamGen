@@ -3,36 +3,41 @@ from __future__ import annotations
 from datetime import datetime
 import json
 import logging
+import os
 import time
+import uuid
 
 from examgen.config import settings
 
-_prev_render_ts: float | None = None
+_session_id = uuid.uuid4().hex[:8]
+_render_t0 = 0.0
+
+
+def mark_render_start() -> None:
+    """Record starting timestamp for render latency."""
+    global _render_t0
+    _render_t0 = time.perf_counter()
 
 
 def jlog(evt: str, **extra: object) -> None:
-    """Emit a JSON line with *evt* and any *extra* fields."""
+    """Write a JSON line if debug mode is active."""
     if not settings.debug_mode:
         return
-    now = datetime.now().isoformat(timespec="milliseconds")
-    rec = {"ts": now, "evt": evt, **extra}
-    logging.getLogger("examgen").debug(
-        json.dumps(rec, ensure_ascii=False)
-    )
+    record = {
+        "ts": datetime.now().isoformat(timespec="milliseconds"),
+        "evt": evt,
+        "sess": _session_id,
+        "pid": os.getpid(),
+        **extra,
+    }
+    logging.getLogger("examgen").debug(json.dumps(record, ensure_ascii=False))
+
+
+def render_elapsed_ms() -> int:
+    """Return elapsed milliseconds since :func:`mark_render_start`."""
+    return int((time.perf_counter() - _render_t0) * 1000)
 
 
 def log(msg: str) -> None:
     """Compatibility wrapper for plain text logs."""
     jlog("log", message=msg)
-
-
-def mark_render_start() -> None:
-    """Store the current time to compute render latency."""
-    global _prev_render_ts
-    _prev_render_ts = time.perf_counter()
-
-
-def render_elapsed() -> int:
-    """Return elapsed milliseconds since ``mark_render_start``."""
-    start = _prev_render_ts or time.perf_counter()
-    return int((time.perf_counter() - start) * 1000)

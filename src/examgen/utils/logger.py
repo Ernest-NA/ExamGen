@@ -7,19 +7,11 @@ from pathlib import Path
 from platformdirs import user_log_dir
 
 
-class _Null(logging.Handler):
-    """Handler that discards all records."""
-
-    def emit(self, record: logging.LogRecord) -> None:  # noqa: D401
-        """Do nothing."""
-        pass
-
-
 def set_logging() -> None:
     """Configure root logger according to ``settings.debug_mode``."""
     from examgen.config import settings
 
-    root = logging.getLogger()
+    root = logging.getLogger("examgen")
     root.handlers.clear()
 
     if settings.debug_mode:
@@ -35,5 +27,4 @@ def set_logging() -> None:
         root.addHandler(file_h)
         root.setLevel(logging.DEBUG)
     else:
-        root.addHandler(_Null())
         root.setLevel(logging.CRITICAL)
