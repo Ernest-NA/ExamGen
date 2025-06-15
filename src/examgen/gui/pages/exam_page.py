@@ -37,6 +37,7 @@ from examgen.core.models import Attempt, AttemptQuestion
 from examgen.core.database import SessionLocal
 from examgen.core.services.exam_service import evaluate_attempt
 from examgen.gui.dialogs.results_dialog import ResultsDialog
+from examgen.utils.debug import log
 
 
 @dataclass(slots=True)
@@ -127,6 +128,7 @@ class ExamPage(QWidget):
         self._opciones: list[QAbstractButton] = []
 
         opts_container = QWidget()
+        self.opts_panel = opts_container
         self.vbox_opts = QVBoxLayout(opts_container)
         self.vbox_opts.setContentsMargins(0, 0, 0, 0)
         self.vbox_opts.setSpacing(2)  # evita saltos perceptibles
@@ -337,10 +339,14 @@ class ExamPage(QWidget):
 
         aq = self.attempt.questions[self.index]
         self.current_aq = aq
-        self.lbl_prompt.setText(aq.question.prompt)
+        q = aq.question
+        log(
+            f"Pregunta cargada: ID={q.id}, tipo={q.type}, opciones={len(q.options)}"
+        )
+        self.lbl_prompt.setText(q.prompt)
         self.lbl_prompt.adjustSize()
         has_expl = bool(
-            aq.question.explanation and aq.question.explanation.strip()
+            q.explanation and q.explanation.strip()
         )
         self._has_expl = has_expl
         self.btn_toggle.setEnabled(has_expl)
@@ -350,7 +356,7 @@ class ExamPage(QWidget):
         self.btn_toggle.setText("Revisar Explicación \u25bc")
         self.btn_toggle.setEnabled(False)
         self.btn_next.setEnabled(False)
-        self.lbl_expl.setText(aq.question.explanation or "")
+        self.lbl_expl.setText(q.explanation or "")
 
         options: list[tuple[str, str, bool, str]] = [
             (
@@ -435,6 +441,10 @@ class ExamPage(QWidget):
         if self.options:
             self._on_opcion_toggled()
 
+        log(
+            f"Layout: scroll={self.scroll.height()} px, opciones={self.opts_panel.height()} px"
+        )
+
     def _toggle_pause(self) -> None:
         if self.timer.isActive():
             self.timer.stop()
@@ -465,6 +475,7 @@ class ExamPage(QWidget):
 
     def _toggle_all_expl(self) -> None:
         """Show or hide all explanations with a parallel animation."""
+        log("Botón 'Revisar Explicación' pulsado")
         first_time = not self._expl_visible
         self._expl_visible = not self._expl_visible
         if first_time:
@@ -489,6 +500,12 @@ class ExamPage(QWidget):
         def _cleanup() -> None:
             self._fx_animations.remove(grp)
             self.btn_toggle.setEnabled(True)
+            if self._expl_visible:
+                log(
+                    f"Explicación mostrada: altura={self._frames_expl[0].height()} px"
+                )
+            else:
+                log("Explicación oculta")
 
         grp.finished.connect(_cleanup)
 

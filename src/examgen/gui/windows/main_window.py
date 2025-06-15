@@ -16,9 +16,7 @@ import os
 env_path = Path(__file__).resolve().parents[3] / ".env"
 load_dotenv(env_path)
 
-from examgen.core.settings import AppSettings
-
-settings = AppSettings.load()
+from examgen.core.settings import settings
 DB_HOME = Path.home() / "Documents" / "examgen.db"
 DB_PATH = Path(settings.data_db_path or DB_HOME)
 LOG_LEVEL = os.getenv("LOG_LEVEL", "WARNING").upper()
