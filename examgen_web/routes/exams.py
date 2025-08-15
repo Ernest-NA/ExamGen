@@ -10,20 +10,15 @@ from examgen_web.infra import services as domain_services
 
 exams_bp = Blueprint("exams", __name__)
 
+# ---------- Utilidades comunes ----------
 
-# ---------- Utilidades ----------
-
-def _domain_available() -> bool:
-    # domain_services.ExamService es None si el import falló en EXG-6.2
-    return getattr(domain_services, "ExamService", None) is not None
+def _domain_available(name: str) -> bool:
+    return getattr(domain_services, name, None) is not None
 
 
 def _to_exam_dict(obj: Any) -> Dict[str, Any]:
-    """
-    Normaliza entidades de dominio o filas a un dict de vista.
-    Se toleran atributos/columnas ausentes.
-    """
-    get = lambda k, default=None: getattr(obj, k, obj.get(k, default)) if isinstance(obj, dict) else getattr(obj, k, default)
+    get = (lambda k, default=None:
+           getattr(obj, k, getattr(obj, "get", lambda _k, d=None: d)(k, default)))
     return {
         "id": get("id"),
         "title": get("title"),
@@ -33,17 +28,14 @@ def _to_exam_dict(obj: Any) -> Dict[str, Any]:
         "updated_at": get("updated_at"),
     }
 
-
-# ---- Fallback SQL (sin crear tablas) ----
+# ---- Fallback EXAM ----
 
 def _exam_columns(session) -> List[str]:
-    cols: List[str] = []
     try:
         res = session.execute(text("PRAGMA table_info(exam)"))
-        cols = [row[1] for row in res.fetchall()]  # row[1] = name
+        return [row[1] for row in res.fetchall()]
     except Exception:
-        cols = []
-    return cols
+        return []
 
 
 def _list_exams_fallback(session) -> List[Dict[str, Any]]:
@@ -52,8 +44,7 @@ def _list_exams_fallback(session) -> List[Dict[str, Any]]:
         return []
     order = "created_at DESC" if "created_at" in cols else "id DESC" if "id" in cols else None
     sql = "SELECT * FROM exam" + (f" ORDER BY {order}" if order else "")
-    rows = session.execute(text(sql)).mappings().all()
-    return [dict(r) for r in rows]
+    return [dict(r) for r in session.execute(text(sql)).mappings().all()]
 
 
 def _get_exam_fallback(session, exam_id: int) -> Optional[Dict[str, Any]]:
@@ -63,82 +54,65 @@ def _get_exam_fallback(session, exam_id: int) -> Optional[Dict[str, Any]]:
     row = session.execute(text("SELECT * FROM exam WHERE id = :id"), {"id": exam_id}).mappings().one_or_none()
     return dict(row) if row else None
 
+# ---- Fallback SECTION & QUESTION para render del detalle ----
 
-def _insert_exam_fallback(session, title: str, description: str, language: Optional[str]) -> Optional[int]:
-    cols = set(_exam_columns(session))
+def _section_columns(session) -> List[str]:
+    try:
+        res = session.execute(text("PRAGMA table_info(section)"))
+        return [row[1] for row in res.fetchall()]
+    except Exception:
+        return []
+
+
+def _list_sections_fallback(session, exam_id: int) -> List[Dict[str, Any]]:
+    cols = _section_columns(session)
     if not cols:
-        # Tabla inexistente
-        return None
+        return []
+    order_by = '"order"' if "order" in cols else "id" if "id" in cols else None
+    sql = "SELECT * FROM section WHERE exam_id = :eid"
+    if order_by:
+        sql += f" ORDER BY {order_by}"
+    return [dict(r) for r in session.execute(text(sql), {"eid": exam_id}).mappings().all()]
 
-    now = datetime.now(timezone.utc).isoformat(timespec="seconds")
-    data: Dict[str, Any] = {}
-    # Solo seteamos columnas existentes para no romper esquema
-    if "title" in cols:
-        data["title"] = title
-    if "description" in cols:
-        data["description"] = description
-    if "language" in cols:
-        data["language"] = language or "es-ES"
-    if "created_at" in cols:
-        data["created_at"] = now
-    if "updated_at" in cols:
-        data["updated_at"] = now
 
-    if not data:
-        return None
+def _question_columns(session) -> List[str]:
+    try:
+        res = session.execute(text("PRAGMA table_info(question)"))
+        return [row[1] for row in res.fetchall()]
+    except Exception:
+        return []
 
-    keys = list(data.keys())
-    placeholders = [f":{k}" for k in keys]
-    sql = text(f"INSERT INTO exam ({', '.join(keys)}) VALUES ({', '.join(placeholders)})")
-    session.execute(sql, data)
-    session.commit()
 
-    # Intentar recuperar ID
-    if "id" in cols:
-        try:
-            rid = session.execute(text("SELECT last_insert_rowid()")).scalar()
-            if isinstance(rid, int):
-                return rid
-        except Exception:
-            pass
-        # Fallback: último por id
-        try:
-            rid = session.execute(text("SELECT id FROM exam ORDER BY id DESC LIMIT 1")).scalar()
-            if isinstance(rid, int):
-                return rid
-        except Exception:
-            pass
-    return None
-
+def _list_questions_fallback(session, section_id: int) -> List[Dict[str, Any]]:
+    cols = _question_columns(session)
+    if not cols:
+        return []
+    order_by = "id" if "id" in cols else None
+    sql = "SELECT * FROM question WHERE section_id = :sid"
+    if order_by:
+        sql += f" ORDER BY {order_by}"
+    return [dict(r) for r in session.execute(text(sql), {"sid": section_id}).mappings().all()]
 
 # ---------- Endpoints ----------
-
 
 @exams_bp.get("/exams")
 def list_exams():
     with get_session() as s:
         exams: List[Dict[str, Any]] = []
-        if _domain_available():
+        if _domain_available("ExamService"):
             try:
                 svc = domain_services.get_exam_service(s)
-                # Suponemos contratos del dominio: .list_exams() -> lista de entidades
                 exams = [_to_exam_dict(e) for e in svc.list_exams()]  # type: ignore[attr-defined]
             except Exception:
-                # Si el dominio no tiene esa API, caemos a fallback seguro
                 exams = _list_exams_fallback(s)
         else:
             exams = _list_exams_fallback(s)
-
     return render_template("exams_list.html", exams=exams)
 
 
 @exams_bp.get("/exams/new")
 def new_exam():
-    return render_template(
-        "exam_form.html",
-        errors={},
-        form={"title": "", "description": "", "language": "es-ES"},
-    )
+    return render_template("exam_form.html", errors={}, form={"title": "", "description": "", "language": "es-ES"})
 
 
 @exams_bp.post("/exams")
@@ -147,59 +121,97 @@ def create_exam():
     description = (request.form.get("description") or "").strip()
     language = (request.form.get("language") or "").strip() or None
 
-    errors: Dict[str, str] = {}
+    errors = {}
     if not title:
         errors["title"] = "El título es obligatorio."
-
     if errors:
-        return (
-            render_template(
-                "exam_form.html",
-                errors=errors,
-                form={
+        return render_template(
+            "exam_form.html",
+            errors=errors,
+            form={"title": title, "description": description, "language": language or "es-ES"},
+        ), 400
+
+    with get_session() as s:
+        if _domain_available("ExamService"):
+            try:
+                svc = domain_services.get_exam_service(s)
+                created = svc.create_exam({
                     "title": title,
                     "description": description,
                     "language": language or "es-ES",
-                },
-            ),
-            400,
-        )
-
-    with get_session() as s:
-        # Ruta dominio si está disponible
-        if _domain_available():
-            try:
-                svc = domain_services.get_exam_service(s)
-                created = svc.create_exam(
-                    {
-                        "title": title,
-                        "description": description,
-                        "language": language or "es-ES",
-                    }
-                )  # type: ignore[attr-defined]
+                })  # type: ignore[attr-defined]
                 exam_id = getattr(created, "id", None)
                 if exam_id is None:
-                    # Si el dominio no devuelve ID, consultamos el último examen
-                    # (esto no crea tablas ni cambia esquema)
                     rows = _list_exams_fallback(s)
                     exam_id = rows[0]["id"] if rows and "id" in rows[0] else None
             except Exception:
-                # Fallback seguro
-                exam_id = _insert_exam_fallback(s, title, description, language)
+                # Fallback a SQL directo
+                cols = set(_exam_columns(s))
+                if not cols:
+                    return redirect(url_for("exams.list_exams"))
+                now = datetime.now(timezone.utc).isoformat(timespec="seconds")
+                data = {}
+                if "title" in cols:
+                    data["title"] = title
+                if "description" in cols:
+                    data["description"] = description
+                if "language" in cols:
+                    data["language"] = language or "es-ES"
+                if "created_at" in cols:
+                    data["created_at"] = now
+                if "updated_at" in cols:
+                    data["updated_at"] = now
+                if data:
+                    keys = list(data.keys())
+                    placeholders = [f":{k}" for k in keys]
+                    s.execute(
+                        text(
+                            f"INSERT INTO exam ({', '.join(keys)}) VALUES ({', '.join(placeholders)})"
+                        ),
+                        data,
+                    )
+                    s.commit()
+                exam_id = s.execute(text("SELECT last_insert_rowid()")).scalar()
         else:
-            exam_id = _insert_exam_fallback(s, title, description, language)
+            # Fallback ya visto
+            cols = set(_exam_columns(s))
+            if not cols:
+                return redirect(url_for("exams.list_exams"))
+            now = datetime.now(timezone.utc).isoformat(timespec="seconds")
+            data = {}
+            if "title" in cols:
+                data["title"] = title
+            if "description" in cols:
+                data["description"] = description
+            if "language" in cols:
+                data["language"] = language or "es-ES"
+            if "created_at" in cols:
+                data["created_at"] = now
+            if "updated_at" in cols:
+                data["updated_at"] = now
+            if data:
+                keys = list(data.keys())
+                placeholders = [f":{k}" for k in keys]
+                s.execute(
+                    text(
+                        f"INSERT INTO exam ({', '.join(keys)}) VALUES ({', '.join(placeholders)})"
+                    ),
+                    data,
+                )
+                s.commit()
+            exam_id = s.execute(text("SELECT last_insert_rowid()")).scalar()
 
     if isinstance(exam_id, int):
         return redirect(url_for("exams.exam_detail", exam_id=exam_id))
-    # Si no hay ID disponible, volvemos al listado
     return redirect(url_for("exams.list_exams"))
 
 
 @exams_bp.get("/exams/<int:exam_id>")
 def exam_detail(exam_id: int):
     with get_session() as s:
+        # Exam
         exam: Optional[Dict[str, Any]] = None
-        if _domain_available():
+        if _domain_available("ExamService"):
             try:
                 svc = domain_services.get_exam_service(s)
                 e = svc.get_exam(exam_id)  # type: ignore[attr-defined]
@@ -209,8 +221,55 @@ def exam_detail(exam_id: int):
                 exam = _get_exam_fallback(s, exam_id)
         else:
             exam = _get_exam_fallback(s, exam_id)
+        if not exam:
+            abort(404)
 
-    if not exam:
-        abort(404)
-    # Nota: Secciones y preguntas llegarán en EXG-6.4
-    return render_template("exam_detail.html", exam=exam)
+        # Sections
+        if _domain_available("SectionService"):
+            try:
+                ssvc = domain_services.get_section_service(s)
+                sections = [
+                    dict(
+                        id=getattr(x, "id", None),
+                        exam_id=getattr(x, "exam_id", None),
+                        title=getattr(x, "title", None),
+                        order=getattr(x, "order", None),
+                    )
+                    for x in ssvc.list_sections(exam_id)  # type: ignore[attr-defined]
+                ]
+            except Exception:
+                sections = _list_sections_fallback(s, exam_id)
+        else:
+            sections = _list_sections_fallback(s, exam_id)
+
+        # Questions por sección (solo para render)
+        enriched_sections: List[Dict[str, Any]] = []
+        for sec in sections:
+            sid = sec.get("id")
+            if sid is None:
+                continue
+            if _domain_available("QuestionService"):
+                try:
+                    qsvc = domain_services.get_question_service(s)
+                    qlist = qsvc.list_questions(sid)  # type: ignore[attr-defined]
+                    questions = [
+                        dict(
+                            id=getattr(q, "id", None),
+                            section_id=getattr(q, "section_id", None),
+                            stem=getattr(q, "stem", getattr(q, "text", None)),
+                            type=getattr(q, "type", None),
+                            choices=getattr(q, "choices", None),
+                            answer=getattr(q, "answer", None),
+                            difficulty=getattr(q, "difficulty", None),
+                            tags=getattr(q, "tags", None),
+                        )
+                        for q in qlist
+                    ]
+                except Exception:
+                    questions = _list_questions_fallback(s, sid)
+            else:
+                questions = _list_questions_fallback(s, sid)
+            sec = {**sec, "questions": questions}
+            enriched_sections.append(sec)
+
+    return render_template("exam_detail.html", exam=exam, sections=enriched_sections)

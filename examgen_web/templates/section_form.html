@@ -1,0 +1,24 @@
+{% extends "base.html" %}
+{% block title %}Nueva sección · ExamGen{% endblock %}
+{% block content %}
+<section class="card">
+  <h2 style="margin-top:0">Nueva sección</h2>
+  <form method="post" action="/exams/{{ exam.id or exam['id'] }}/sections" style="display:grid;gap:1rem;max-width:720px">
+    <label>
+      <span>Título</span>
+      <input name="title" type="text" required value="{{ form.title }}" />
+      {% if errors.title %}<small style="color:#b91c1c">{{ errors.title }}</small>{% endif %}
+    </label>
+
+    <label>
+      <span>Orden (opcional)</span>
+      <input name="order" type="number" min="1" value="{{ form.order }}" />
+    </label>
+
+    <div class="actions">
+      <button class="btn" type="submit">Crear</button>
+      <a class="btn secondary" href="/exams/{{ exam.id or exam['id'] }}">Cancelar</a>
+    </div>
+  </form>
+</section>
+{% endblock %}

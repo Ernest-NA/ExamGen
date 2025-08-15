@@ -16,10 +16,62 @@
 </section>
 
 <section class="card" style="margin-top:1rem">
-  <h3 style="margin-top:0">Secciones</h3>
-  <p style="color:#475569">La gestión de secciones y preguntas se añadirá en <strong>EXG‑6.4</strong>.</p>
-  <div class="actions">
-    <a class="btn disabled" aria-disabled="true" title="Disponible en EXG‑6.4">+ Añadir sección</a>
-  </div>
+  <header style="display:flex;justify-content:space-between;align-items:center;gap:1rem">
+    <h3 style="margin:0">Secciones</h3>
+    <a class="btn" href="/exams/{{ exam.id or exam['id'] }}/sections/new">+ Añadir sección</a>
+  </header>
+
+  {% if sections and sections|length > 0 %}
+    <div style="display:grid;gap:1rem;margin-top:1rem">
+      {% for sec in sections %}
+      <div style="border:1px solid #e5e7eb;border-radius:10px;padding:1rem">
+        <div style="display:flex;justify-content:space-between;align-items:center;gap:1rem">
+          <div>
+            <strong>Sección {{ loop.index }}:</strong>
+            <span>{{ sec.title or sec["title"] }}</span>
+            {% if sec.order or sec["order"] %}<span class="badge" style="margin-left:.5rem">Orden: {{ sec.order or sec["order"] }}</span>{% endif %}
+          </div>
+          <div class="actions">
+            <a class="btn secondary" href="/sections/{{ sec.id or sec['id'] }}/questions/new">+ Pregunta</a>
+          </div>
+        </div>
+
+        {% set qs = sec.questions or sec["questions"] %}
+        {% if qs and qs|length > 0 %}
+          <div style="overflow-x:auto;margin-top:.75rem">
+            <table>
+              <thead>
+                <tr>
+                  <th style="white-space:nowrap">#</th>
+                  <th>Enunciado</th>
+                  <th style="white-space:nowrap">Tipo</th>
+                  <th style="white-space:nowrap">Dificultad</th>
+                  <th></th>
+                </tr>
+              </thead>
+              <tbody>
+                {% for q in qs %}
+                <tr>
+                  <td style="white-space:nowrap">{{ loop.index }}</td>
+                  <td>{{ q.stem or q["stem"] }}</td>
+                  <td style="white-space:nowrap">{{ q.type or q["type"] or "—" }}</td>
+                  <td style="white-space:nowrap">{{ q.difficulty or q["difficulty"] or "—" }}</td>
+                  <td style="text-align:right;white-space:nowrap">
+                    <a class="btn secondary" href="/questions/{{ q.id or q['id'] }}/edit">Editar</a>
+                  </td>
+                </tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+        {% else %}
+          <p style="margin-top:.5rem;color:#475569">No hay preguntas en esta sección.</p>
+        {% endif %}
+      </div>
+      {% endfor %}
+    </div>
+  {% else %}
+    <p style="margin-top:1rem;color:#475569">Este examen aún no tiene secciones.</p>
+  {% endif %}
 </section>
 {% endblock %}
