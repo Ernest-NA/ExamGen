@@ -8,14 +8,12 @@ from sqlalchemy import text  # type: ignore
 
 from examgen_web.infra.db import get_session
 from examgen_web.infra import services as domain_services
+from examgen_web.infra import history  # <- NUEVO
 
 questions_bp = Blueprint("questions", __name__)
 
-# ---- Helpers ----
-
 def _domain_available(name: str) -> bool:
     return getattr(domain_services, name, None) is not None
-
 
 def _section_columns(session) -> List[str]:
     try:
@@ -23,31 +21,25 @@ def _section_columns(session) -> List[str]:
     except Exception:
         return []
 
-
 def _question_columns(session) -> List[str]:
     try:
         return [r[1] for r in session.execute(text("PRAGMA table_info(question)")).fetchall()]
     except Exception:
         return []
 
-
 def _get_section_fallback(session, section_id: int) -> Optional[Dict[str, Any]]:
     row = session.execute(text("SELECT * FROM section WHERE id = :id"), {"id": section_id}).mappings().one_or_none()
     return dict(row) if row else None
-
 
 def _get_exam_id_for_section(session, section_id: int) -> Optional[int]:
     sec = _get_section_fallback(session, section_id)
     return int(sec["exam_id"]) if sec and "exam_id" in sec else None
 
-
 def _get_question_fallback(session, question_id: int) -> Optional[Dict[str, Any]]:
     row = session.execute(text("SELECT * FROM question WHERE id = :id"), {"id": question_id}).mappings().one_or_none()
     return dict(row) if row else None
 
-
 def _as_json_if_possible(value: str) -> str:
-    """Si 'value' es JSON válido, lo dejamos. Si contiene ';;', lo convertimos a JSON array. En otro caso, lo devolvemos igual."""
     if not value:
         return value
     try:
@@ -59,7 +51,6 @@ def _as_json_if_possible(value: str) -> str:
         parts = [p.strip() for p in value.split(";;") if p.strip()]
         return json.dumps(parts, ensure_ascii=False)
     return value
-
 
 def _insert_question_fallback(session, section_id: int, payload: Dict[str, Any]) -> Optional[int]:
     cols = set(_question_columns(session))
@@ -73,14 +64,9 @@ def _insert_question_fallback(session, section_id: int, payload: Dict[str, Any])
             if k in ("choices","tags"):
                 v = _as_json_if_possible(v)
             data[k] = v
-    if "created_at" in cols:
-        data["created_at"] = now
-    if "updated_at" in cols:
-        data["updated_at"] = now
-    if not data:
-        return None
-    keys = list(data.keys())
-    placeholders = [f":{k}" for k in keys]
+    if "created_at" in cols: data["created_at"] = now
+    if "updated_at" in cols: data["updated_at"] = now
+    keys = list(data.keys()); placeholders = [f":{k}" for k in keys]
     session.execute(text(f"INSERT INTO question ({', '.join(keys)}) VALUES ({', '.join(placeholders)})"), data)
     session.commit()
     try:
@@ -92,7 +78,6 @@ def _insert_question_fallback(session, section_id: int, payload: Dict[str, Any])
             return int(rid) if isinstance(rid, int) else None
         except Exception:
             return None
-
 
 def _update_question_fallback(session, question_id: int, payload: Dict[str, Any]) -> None:
     cols = set(_question_columns(session))
@@ -114,8 +99,6 @@ def _update_question_fallback(session, question_id: int, payload: Dict[str, Any]
     session.execute(text(f"UPDATE question SET {sets} WHERE id = :qid"), data)
     session.commit()
 
-# ---- Endpoints ----
-
 @questions_bp.get("/sections/<int:section_id>/questions/new")
 def new_question(section_id: int):
     with get_session() as s:
@@ -127,8 +110,7 @@ def new_question(section_id: int):
                            exam_id=exam_id,
                            section_id=section_id,
                            errors={},
-                           form={"stem":"", "type":"mcq", "choices":"", "answer":"", "difficulty":"medium", "tags":""})
-
+                           form={"stem":"", "type":"mcq", "choices":"", "answer":"", "difficulty":"medium", "tags":"", "metadata":""})
 
 @questions_bp.post("/sections/<int:section_id>/questions")
 def create_question(section_id: int):
@@ -151,23 +133,33 @@ def create_question(section_id: int):
                                errors=errors,
                                form={"stem": stem, "type": qtype, "choices": choices, "answer": answer, "difficulty": difficulty, "tags": tags, "metadata": metadata}), 400
 
+    qid: Optional[int] = None
     with get_session() as s:
         if _domain_available("QuestionService"):
             try:
                 svc = domain_services.get_question_service(s)
                 payload = {"stem": stem, "type": qtype, "choices": choices, "answer": answer, "difficulty": difficulty, "tags": tags, "metadata": metadata}
-                svc.add_question(section_id, payload)  # type: ignore[attr-defined]
+                created = svc.add_question(section_id, payload)  # type: ignore[attr-defined]
+                qid = getattr(created, "id", None)
             except Exception:
-                _insert_question_fallback(s, section_id, {"stem": stem, "type": qtype, "choices": choices, "answer": answer, "difficulty": difficulty, "tags": tags, "metadata": metadata})
+                qid = _insert_question_fallback(s, section_id, {"stem": stem, "type": qtype, "choices": choices, "answer": answer, "difficulty": difficulty, "tags": tags, "metadata": metadata})
         else:
-            _insert_question_fallback(s, section_id, {"stem": stem, "type": qtype, "choices": choices, "answer": answer, "difficulty": difficulty, "tags": tags, "metadata": metadata})
+            qid = _insert_question_fallback(s, section_id, {"stem": stem, "type": qtype, "choices": choices, "answer": answer, "difficulty": difficulty, "tags": tags, "metadata": metadata})
 
         exam_id = _get_exam_id_for_section(s, section_id)
+
+    # Historian
+    history.record_event(
+        exam_id=exam_id, entity="question", action="create", entity_id=qid,
+        summary=(stem[:80] + "…") if len(stem) > 80 else stem,
+        before=None,
+        after={"type": qtype, "answer": answer, "difficulty": difficulty, "tags": tags},
+        extra={"section_id": section_id}
+    )
 
     if isinstance(exam_id, int):
         return redirect(url_for("exams.exam_detail", exam_id=exam_id))
     abort(400)
-
 
 @questions_bp.get("/questions/<int:question_id>/edit")
 def edit_question(question_id: int):
@@ -190,7 +182,6 @@ def edit_question(question_id: int):
     }
     return render_template("question_form.html", mode="edit", exam_id=exam_id, section_id=sec_id, question_id=question_id, errors={}, form=form)
 
-
 @questions_bp.post("/questions/<int:question_id>")
 def update_question(question_id: int):
     stem = (request.form.get("stem") or "").strip()
@@ -206,10 +197,10 @@ def update_question(question_id: int):
         errors["stem"] = "El enunciado es obligatorio."
 
     with get_session() as s:
-        q = _get_question_fallback(s, question_id)
-        if not q:
+        q_before = _get_question_fallback(s, question_id)
+        if not q_before:
             abort(404)
-        sec_id = int(q["section_id"]) if "section_id" in q else None
+        sec_id = int(q_before["section_id"]) if "section_id" in q_before else None
         exam_id = _get_exam_id_for_section(s, sec_id) if sec_id is not None else None
 
     if errors:
@@ -217,15 +208,24 @@ def update_question(question_id: int):
                                form={"stem": stem, "type": qtype, "choices": choices, "answer": answer, "difficulty": difficulty, "tags": tags, "metadata": metadata}), 400
 
     with get_session() as s:
+        payload = {"stem": stem, "type": qtype, "choices": choices, "answer": answer, "difficulty": difficulty, "tags": tags, "metadata": metadata}
         if _domain_available("QuestionService"):
             try:
                 svc = domain_services.get_question_service(s)
-                payload = {"stem": stem, "type": qtype, "choices": choices, "answer": answer, "difficulty": difficulty, "tags": tags, "metadata": metadata}
                 svc.update_question(question_id, payload)  # type: ignore[attr-defined]
             except Exception:
-                _update_question_fallback(s, question_id, {"stem": stem, "type": qtype, "choices": choices, "answer": answer, "difficulty": difficulty, "tags": tags, "metadata": metadata})
+                _update_question_fallback(s, question_id, payload)
         else:
-            _update_question_fallback(s, question_id, {"stem": stem, "type": qtype, "choices": choices, "answer": answer, "difficulty": difficulty, "tags": tags, "metadata": metadata})
+            _update_question_fallback(s, question_id, payload)
+
+    # Historian
+    summary = (stem[:80] + "…") if len(stem) > 80 else stem
+    before_slim = {k: q_before.get(k) for k in ("stem","type","answer","difficulty","tags")}
+    after_slim  = {k: payload.get(k) for k in ("stem","type","answer","difficulty","tags")}
+    history.record_event(
+        exam_id=exam_id, entity="question", action="update", entity_id=question_id,
+        summary=summary, before=before_slim, after=after_slim, extra={"section_id": sec_id}
+    )
 
     if isinstance(exam_id, int):
         return redirect(url_for("exams.exam_detail", exam_id=exam_id))
