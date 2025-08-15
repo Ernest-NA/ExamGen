@@ -1,0 +1,24 @@
+{% extends "base.html" %}
+{% from 'partials/_macros.html' import button, field %}
+{% block title %}Importar examen · ExamGen{% endblock %}
+{% block content %}
+<section class="card">
+  <h2>Importar examen</h2>
+  <form method="post" action="{{ url_for('importer.import_preview') }}" enctype="multipart/form-data" style="max-width:720px">
+    {{ field('file', 'Archivo', type='file', attrs='required accept=.json,.csv') }}
+    {% set opts %}
+      <option value="json">JSON</option>
+      <option value="csv">CSV</option>
+    {% endset %}
+    {{ field('fmt', 'Formato', type='select', value=opts) }}
+    <div class="field">
+      <label>Modo</label>
+      <label><input type="radio" name="mode" value="new" checked> Crear examen nuevo</label>
+      <label><input type="radio" name="mode" value="append"> Añadir a examen existente</label>
+    </div>
+    <div class="actions">
+      {{ button('Continuar', type='submit') }}
+    </div>
+  </form>
+</section>
+{% endblock %}

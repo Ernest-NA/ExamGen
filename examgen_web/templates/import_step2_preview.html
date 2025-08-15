@@ -1,0 +1,27 @@
+{% extends "base.html" %}
+{% from 'partials/_macros.html' import button %}
+{% block title %}Vista previa importación · ExamGen{% endblock %}
+{% block content %}
+<section class="card">
+  <h2>Vista previa</h2>
+  <p>{{ data.question_count }} preguntas detectadas.</p>
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>Pregunta</th></tr></thead>
+      <tbody>
+      {% for q in data.sample %}
+        <tr><td>{{ q.get('stem') or q.get('prompt') }}</td></tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  <form method="post" action="{{ url_for('importer.import_commit') }}">
+    <input type="hidden" name="mode" value="{{ mode }}">
+    <input type="hidden" name="token" value="{{ token }}">
+    <div class="actions">
+      {{ button('Importar', type='submit') }}
+      {{ button('Cancelar', href=url_for('importer.import_step1'), variant='secondary') }}
+    </div>
+  </form>
+</section>
+{% endblock %}
