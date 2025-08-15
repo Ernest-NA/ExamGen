@@ -1,63 +1,65 @@
 {% extends "base.html" %}
+{% from 'partials/_macros.html' import button, badge, icon %}
 {% block title %}{{ (exam.title or exam["title"]) ~ " · ExamGen" }}{% endblock %}
 {% block content %}
+<nav class="muted" aria-label="breadcrumb" style="margin-bottom:var(--eg-gap)">
+  <a href="/">Inicio</a> / <a href="/exams">Exámenes</a> / <span>{{ exam.title or exam["title"] }}</span>
+</nav>
 <section class="card">
   <header style="display:flex;justify-content:space-between;align-items:center;gap:1rem">
     <div>
-      <h2 style="margin:0">{{ exam.title or exam["title"] }}</h2>
-      <p style="margin:.25rem 0;color:#475569">{{ exam.description or exam["description"] or "" }}</p>
-      <div class="badge">Idioma: {{ exam.language or exam["language"] or "—" }}</div>
+      <h2>{{ exam.title or exam["title"] }}</h2>
+      <p class="muted">{{ exam.description or exam["description"] or "" }}</p>
+      {{ badge('Idioma: ' ~ (exam.language or exam["language"] or "—")) }}
     </div>
     <div class="actions">
-      <a class="btn secondary" href="{{ url_for('exams.list_exams') }}">Volver</a>
-      <a class="btn" href="/exams/{{ exam.id or exam['id'] }}/preview">Previsualizar</a>
+      {{ button((icon('back') ~ ' Volver')|safe, href=url_for('exams.list_exams'), variant='secondary') }}
+      {{ button('Previsualizar', href='/exams/' ~ (exam.id or exam['id']) ~ '/preview') }}
     </div>
   </header>
 </section>
 
 <section class="card" style="margin-top:1rem">
   <header style="display:flex;justify-content:space-between;align-items:center;gap:1rem">
-    <h3 style="margin:0">Secciones</h3>
-    <a class="btn" href="/exams/{{ exam.id or exam['id'] }}/sections/new">+ Añadir sección</a>
+    <h3>Secciones</h3>
+    {{ button((icon('plus') ~ ' Añadir sección')|safe, href='/exams/' ~ (exam.id or exam['id']) ~ '/sections/new') }}
   </header>
-
   {% if sections and sections|length > 0 %}
-    <div style="display:grid;gap:1rem;margin-top:1rem">
+    <div style="display:grid;gap:var(--eg-gap);margin-top:1rem">
       {% for sec in sections %}
-      <div style="border:1px solid #e5e7eb;border-radius:10px;padding:1rem">
+      <div style="border:1px solid var(--eg-border);border-radius:var(--eg-radius);padding:var(--eg-gap)">
         <div style="display:flex;justify-content:space-between;align-items:center;gap:1rem">
           <div>
             <strong>Sección {{ loop.index }}:</strong>
             <span>{{ sec.title or sec["title"] }}</span>
-            {% if sec.order or sec["order"] %}<span class="badge" style="margin-left:.5rem">Orden: {{ sec.order or sec["order"] }}</span>{% endif %}
+            {% if sec.order or sec["order"] %}{{ badge('Orden: ' ~ (sec.order or sec["order"])) }}{% endif %}
           </div>
           <div class="actions">
-            <a class="btn secondary" href="/sections/{{ sec.id or sec['id'] }}/questions/new">+ Pregunta</a>
+            {{ button((icon('plus') ~ ' Pregunta')|safe, href='/sections/' ~ (sec.id or sec['id']) ~ '/questions/new', variant='secondary') }}
           </div>
         </div>
-
         {% set qs = sec.questions or sec["questions"] %}
         {% if qs and qs|length > 0 %}
-          <div style="overflow-x:auto;margin-top:.75rem">
+          <div class="table-wrap" style="margin-top:.75rem">
             <table>
               <thead>
                 <tr>
-                  <th style="white-space:nowrap">#</th>
+                  <th>#</th>
                   <th>Enunciado</th>
-                  <th style="white-space:nowrap">Tipo</th>
-                  <th style="white-space:nowrap">Dificultad</th>
+                  <th>Tipo</th>
+                  <th>Dificultad</th>
                   <th></th>
                 </tr>
               </thead>
               <tbody>
                 {% for q in qs %}
                 <tr>
-                  <td style="white-space:nowrap">{{ loop.index }}</td>
+                  <td>{{ loop.index }}</td>
                   <td>{{ q.stem or q["stem"] }}</td>
-                  <td style="white-space:nowrap">{{ q.type or q["type"] or "—" }}</td>
-                  <td style="white-space:nowrap">{{ q.difficulty or q["difficulty"] or "—" }}</td>
-                  <td style="text-align:right;white-space:nowrap">
-                    <a class="btn secondary" href="/questions/{{ q.id or q['id'] }}/edit">Editar</a>
+                  <td>{{ q.type or q["type"] or "—" }}</td>
+                  <td>{{ q.difficulty or q["difficulty"] or "—" }}</td>
+                  <td style="text-align:right">
+                    {{ button('Editar', href='/questions/' ~ (q.id or q['id']) ~ '/edit', variant='secondary') }}
                   </td>
                 </tr>
                 {% endfor %}
@@ -65,24 +67,24 @@
             </table>
           </div>
         {% else %}
-          <p style="margin-top:.5rem;color:#475569">No hay preguntas en esta sección.</p>
+          <p class="muted" style="margin-top:.5rem">No hay preguntas en esta sección.</p>
         {% endif %}
       </div>
       {% endfor %}
     </div>
   {% else %}
-    <p style="margin-top:1rem;color:#475569">Este examen aún no tiene secciones.</p>
+    <p class="muted" style="margin-top:1rem">Este examen aún no tiene secciones.</p>
   {% endif %}
 </section>
 
 <section class="card" style="margin-top:1rem">
-  <h3 style="margin-top:0">Historial</h3>
+  <h3>Historial</h3>
   {% if events and events|length > 0 %}
-    <div style="overflow-x:auto">
+    <div class="table-wrap">
       <table>
         <thead>
           <tr>
-            <th style="white-space:nowrap">Fecha (UTC)</th>
+            <th>Fecha (UTC)</th>
             <th>Acción</th>
             <th>Entidad</th>
             <th>Detalle</th>
@@ -91,9 +93,9 @@
         <tbody>
           {% for ev in events %}
           <tr>
-            <td style="white-space:nowrap">{{ ev.ts }}</td>
-            <td style="white-space:nowrap">{{ ev.action }}</td>
-            <td style="white-space:nowrap">{{ ev.entity }}{% if ev.entity_id %} #{{ ev.entity_id }}{% endif %}</td>
+            <td>{{ ev.ts }}</td>
+            <td>{{ badge(ev.action) }}</td>
+            <td>{{ ev.entity }}{% if ev.entity_id %} #{{ ev.entity_id }}{% endif %}</td>
             <td>{{ ev.summary or "" }}</td>
           </tr>
           {% endfor %}
@@ -101,7 +103,7 @@
       </table>
     </div>
   {% else %}
-    <p style="color:#475569">No hay eventos registrados todavía.</p>
+    <p class="muted">No hay eventos registrados todavía.</p>
   {% endif %}
 </section>
 {% endblock %}

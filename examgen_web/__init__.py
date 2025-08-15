@@ -1,4 +1,4 @@
-from flask import Flask
+from flask import Flask, request
 from .routes.home import home_bp
 from .routes.health import health_bp
 from .routes.exams import exams_bp
@@ -6,6 +6,8 @@ from .routes.sections import sections_bp
 from .routes.questions import questions_bp
 from .routes.preview import preview_bp      # <- NUEVO
 from .routes.export import export_bp        # <- NUEVO
+
+APP_VERSION = "0.1.0"
 
 
 def create_app() -> Flask:
@@ -22,4 +24,15 @@ def create_app() -> Flask:
     app.register_blueprint(questions_bp)
     app.register_blueprint(preview_bp)      # <- NUEVO
     app.register_blueprint(export_bp)       # <- NUEVO
+
+    @app.context_processor
+    def inject_globals():
+        endpoint = request.endpoint or ""
+        nav = ""
+        if endpoint.startswith("home."):
+            nav = "home"
+        elif endpoint.startswith("exams."):
+            nav = "exams"
+        return {"nav_active": nav, "app_version": APP_VERSION}
+
     return app
