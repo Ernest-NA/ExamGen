@@ -1,0 +1,102 @@
+from __future__ import annotations
+
+from pathlib import Path
+
+from sqlalchemy import create_engine, inspect
+from sqlalchemy.engine import Engine
+from sqlalchemy.exc import OperationalError
+from sqlalchemy.orm import sessionmaker
+
+from examgen.config import db_path
+from examgen.utils.debug import log
+
+from examgen.core.models import Base, _create_examiner_tables
+
+
+LEGACY_DB = Path("examgen.db")
+LEGACY_DOCS_DB = Path.home() / "Documents" / "examgen.db"
+
+if LEGACY_DB.exists() and not DEFAULT_DB.exists():
+    LEGACY_DB.rename(DEFAULT_DB)
+
+if LEGACY_DOCS_DB.exists() and DEFAULT_DB.exists():
+    LEGACY_DOCS_DB.unlink()
+
+DB_FILE = db_path()
+DB_FILE.parent.mkdir(parents=True, exist_ok=True)
+DB_FILE.touch(exist_ok=True)
+engine = create_engine(f"sqlite:///{DB_FILE}", future=True)
+SessionLocal = sessionmaker(bind=engine, expire_on_commit=False, future=True)
+
+_engine: Engine | None = engine
+
+
+def set_engine(db_file: Path | None = None) -> None:
+    """Create and register a new engine bound to ``db_path``."""
+    global _engine
+
+    path = db_file or db_path()
+
+    if not path.exists():
+        if LEGACY_DB.exists():
+            LEGACY_DB.rename(path)
+        else:
+            path.touch()
+            log(f"DB creada en {path}")
+
+    _engine = create_engine(f"sqlite:///{path}", echo=False, future=True)
+    SessionLocal.configure(bind=_engine)
+    init_db(_engine)
+
+
+def get_engine() -> Engine:
+    """Return the currently configured engine."""
+    if _engine is None:
+        raise RuntimeError("Engine not initialised. Call set_engine() first")
+    return _engine
+
+
+def init_db(engine: Engine) -> None:
+    """Create tables and apply idempotent migrations."""
+    Base.metadata.create_all(engine)
+
+    _create_examiner_tables(engine)
+
+    with engine.begin() as con:
+        con.exec_driver_sql("PRAGMA foreign_keys = ON")
+
+        existing_cols = {
+            tbl: {row[1] for row in con.exec_driver_sql(f"PRAGMA table_info({tbl})")}
+            for tbl in ("question", "answer_option")
+        }
+
+        if (
+            "reference" not in existing_cols["question"]
+            and "reference_id" not in existing_cols["question"]
+        ):
+            con.exec_driver_sql("ALTER TABLE question ADD COLUMN reference TEXT")
+
+        for col_sql in ("answer TEXT", "explanation TEXT"):
+            col_name = col_sql.split()[0]
+            if col_name not in existing_cols["answer_option"]:
+                con.exec_driver_sql(f"ALTER TABLE answer_option ADD COLUMN {col_sql}")
+
+
+def run_migrations() -> None:
+    """Execute optional migration scripts if dependencies are met."""
+    from .migrations import MIGRATIONS
+
+    engine = get_engine()
+    inspector = inspect(engine)
+    existing_tables = set(inspector.get_table_names())
+
+    for mig in MIGRATIONS:
+        if mig.requires.issubset(existing_tables):
+            try:
+                mig.run()
+                existing_tables.update(mig.provides)
+            except OperationalError as exc:
+                log(f"Migration {mig.__name__} failed: {exc}")
+        else:
+            missing = mig.requires - existing_tables
+            log(f"Skipping {mig.__name__}: unmet deps {missing}")
