@@ -2,24 +2,51 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from sqlalchemy import create_engine
+from sqlalchemy import create_engine, inspect
 from sqlalchemy.engine import Engine
+from sqlalchemy.exc import OperationalError
 from sqlalchemy.orm import sessionmaker
+
+from examgen.config import db_path
+from examgen.utils.debug import log
 
 from examgen.core.models import Base, _create_examiner_tables
 
 
-_engine: Engine | None = None
-SessionLocal = sessionmaker(expire_on_commit=False, future=True)
+LEGACY_DB = Path("examgen.db")
+LEGACY_DOCS_DB = Path.home() / "Documents" / "examgen.db"
+
+if LEGACY_DB.exists() and not DEFAULT_DB.exists():
+    LEGACY_DB.rename(DEFAULT_DB)
+
+if LEGACY_DOCS_DB.exists() and DEFAULT_DB.exists():
+    LEGACY_DOCS_DB.unlink()
+
+DB_FILE = db_path()
+DB_FILE.parent.mkdir(parents=True, exist_ok=True)
+DB_FILE.touch(exist_ok=True)
+engine = create_engine(f"sqlite:///{DB_FILE}", future=True)
+SessionLocal = sessionmaker(bind=engine, expire_on_commit=False, future=True)
+
+_engine: Engine | None = engine
 
 
-def set_engine(db_path: Path) -> None:
+def set_engine(db_file: Path | None = None) -> None:
     """Create and register a new engine bound to ``db_path``."""
     global _engine
-    _engine = create_engine(f"sqlite:///{db_path}", echo=False, future=True)
+
+    path = db_file or db_path()
+
+    if not path.exists():
+        if LEGACY_DB.exists():
+            LEGACY_DB.rename(path)
+        else:
+            path.touch()
+            log(f"DB creada en {path}")
+
+    _engine = create_engine(f"sqlite:///{path}", echo=False, future=True)
     SessionLocal.configure(bind=_engine)
-    if db_path.exists():
-        init_db(_engine)
+    init_db(_engine)
 
 
 def get_engine() -> Engine:
@@ -56,9 +83,20 @@ def init_db(engine: Engine) -> None:
 
 
 def run_migrations() -> None:
-    """Execute optional migration scripts."""
-    from examgen.core.migrations.fix_attempt_fk import run as fix_fk
-    from examgen.core.migrations.add_section import run as add_section
+    """Execute optional migration scripts if dependencies are met."""
+    from .migrations import MIGRATIONS
 
-    fix_fk()
-    add_section()
+    engine = get_engine()
+    inspector = inspect(engine)
+    existing_tables = set(inspector.get_table_names())
+
+    for mig in MIGRATIONS:
+        if mig.requires.issubset(existing_tables):
+            try:
+                mig.run()
+                existing_tables.update(mig.provides)
+            except OperationalError as exc:
+                log(f"Migration {mig.__name__} failed: {exc}")
+        else:
+            missing = mig.requires - existing_tables
+            log(f"Skipping {mig.__name__}: unmet deps {missing}")

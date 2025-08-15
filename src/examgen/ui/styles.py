@@ -39,7 +39,17 @@ QLabel#OptExplanation {
 }
 """
 
+EXPLANATION_BOX_STYLE = """
+QFrame#explanationBox {
+    border: 1px solid #4caf50;
+    background: #1a1a1a;
+    border-radius: 4px;
+    padding: 4px 8px;
+}
+QLabel#explanationLabel { color: #4caf50; }
+"""
+
 
 def apply_app_styles(app: QApplication) -> None:
     """Apply global styles to *app*."""
-    app.setStyleSheet(BUTTON_STYLE + OPTION_EXPL_STYLE)
+    app.setStyleSheet(BUTTON_STYLE + OPTION_EXPL_STYLE + EXPLANATION_BOX_STYLE)

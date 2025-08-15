@@ -2,8 +2,8 @@ from __future__ import annotations
 
 from PySide6.QtGui import QIcon
 from PySide6.QtWidgets import (
-    QDialog,
     QWidget,
+    QDialog,
     QVBoxLayout,
     QHBoxLayout,
     QComboBox,
@@ -19,6 +19,8 @@ from PySide6.QtWidgets import (
     QHeaderView,
     QAbstractItemView,
     QStyle,
+    QSplitter,
+    QAbstractScrollArea,
 )
 from PySide6.QtCore import Qt
 
@@ -29,12 +31,9 @@ from examgen.gui.dialogs.question_dialog import QuestionDialog
 from sqlalchemy.orm import selectinload
 
 
-class QuestionsWindow(QDialog):
+class QuestionsPage(QWidget):
     def __init__(self, parent: QWidget | None = None) -> None:
-        super().__init__(parent=None)
-        self.setWindowTitle("Preguntas")
-        self.resize(1100, 700)
-        self.setAttribute(Qt.WA_DeleteOnClose)
+        super().__init__(parent)
 
         # --- fila 1: filtros + botón ---
         self.cb_subject = QComboBox()
@@ -68,7 +67,7 @@ class QuestionsWindow(QDialog):
         self.table = QTableWidget(0, len(headers))
         self.table.setHorizontalHeaderLabels(headers)
         hh = self.table.horizontalHeader()
-        hh.setStretchLastSection(True)
+        hh.setSectionResizeMode(QHeaderView.Stretch)
         self.table.verticalHeader().setVisible(False)
         self.table.setWordWrap(True)
         self.table.setShowGrid(True)
@@ -81,12 +80,23 @@ class QuestionsWindow(QDialog):
         hh.setSectionResizeMode(COL_EDIT, QHeaderView.Fixed)
         self.table.setColumnWidth(COL_EDIT, icon_w)
 
+        splitter = QSplitter(Qt.Horizontal, self)
+
         root = QVBoxLayout(self)
-        # Margen izq, sup, der, inf  →  4 px de respiro arriba
-        root.setContentsMargins(4, 6, 4, 0)
-        root.setSpacing(4)
+        root.setContentsMargins(0, 0, 0, 0)
+        root.setSpacing(8)
         root.addLayout(top)
-        root.addWidget(self.table)
+        root.addWidget(splitter)
+
+        self.table.setSizeAdjustPolicy(QAbstractScrollArea.AdjustToContents)
+        self.table.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
+        splitter.addWidget(self.table)
+
+        self.detail_panel = QWidget()
+        splitter.addWidget(self.detail_panel)
+
+        splitter.setStretchFactor(0, 3)
+        splitter.setStretchFactor(1, 2)
 
         self.footer = QStatusBar(self)
         self.lbl_stats = QLabel(self)
@@ -274,12 +284,12 @@ class QuestionsWindow(QDialog):
         self.table.setEditTriggers(QAbstractItemView.NoEditTriggers)
 
         extra_width = 160 + 240 + 48
-        desired_width = max(
+        max_width = max(
             2100 + extra_width,
             sum(self.table.columnWidth(c) for c in range(self.table.columnCount()))
             + 60,
         )
-        self.resize(desired_width, self.height())
+        self.setMinimumWidth(max_width)
 
     def _refresh_stats(self) -> None:
         with SessionLocal() as s:

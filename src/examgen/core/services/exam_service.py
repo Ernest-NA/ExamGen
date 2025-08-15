@@ -23,6 +23,25 @@ class ExamConfig:
     time_limit: int
 
 
+class NotEnoughQuestionsError(Exception):
+    """Raised when there are not enough questions for a subject."""
+
+    def __init__(self, available: int) -> None:
+        super().__init__("Not enough questions")
+        self.available = available
+
+
+def count_questions_by_subject(subject: str) -> int:
+    """Return how many questions exist for a subject name."""
+    with SessionLocal() as s:
+        count = s.scalar(
+            select(func.count(m.Question.id))
+            .join(m.Subject, m.Subject.id == m.Question.subject_id)
+            .where(func.lower(m.Subject.name) == subject.lower())
+        )
+        return int(count or 0)
+
+
 def _select_random(
     session: Session, exam_id: int, limit: int, subject_id: int | None = None
 ) -> List[m.Question]:
@@ -36,6 +55,7 @@ def _select_random(
     )
     stmt = (
         select(m.Question)
+        .distinct(m.Question.id)
         .join(m.ExamQuestion, m.ExamQuestion.question_id == m.Question.id)
         .outerjoin(attempts_sub, attempts_sub.c.question_id == m.Question.id)
         .filter(m.ExamQuestion.exam_id == exam_id)
@@ -80,6 +100,7 @@ def _select_by_errors(
             func.coalesce(error_sub.c.errors_count, 0).label("errors"),
             func.coalesce(attempts_sub.c.attempts_count, 0).label("attempts"),
         )
+        .distinct(m.Question.id)
         .join(m.ExamQuestion, m.ExamQuestion.question_id == m.Question.id)
         .outerjoin(error_sub, error_sub.c.question_id == m.Question.id)
         .outerjoin(attempts_sub, attempts_sub.c.question_id == m.Question.id)
@@ -99,6 +120,9 @@ def _select_by_errors(
 def create_attempt(config: ExamConfig) -> m.Attempt:
     """Persist a new Attempt with its questions."""
     with SessionLocal() as session:
+        available = count_questions_by_subject(config.subject)
+        if config.num_questions and config.num_questions > available:
+            raise NotEnoughQuestionsError(available)
         if config.exam_id == 0:
             stmt = (
                 session.query(m.Question)
@@ -108,7 +132,6 @@ def create_attempt(config: ExamConfig) -> m.Attempt:
                 .limit(config.num_questions or 0)
             )
             questions = stmt.all()
-            random.shuffle(questions)
             if not questions:
                 raise ValueError(f'No hay preguntas para la materia "{config.subject}"')
         else:
@@ -124,7 +147,6 @@ def create_attempt(config: ExamConfig) -> m.Attempt:
                 questions = _select_by_errors(
                     session, config.exam_id, threshold, config.subject_id
                 )
-            random.shuffle(questions)
 
             if not questions:
                 questions = (
@@ -135,10 +157,13 @@ def create_attempt(config: ExamConfig) -> m.Attempt:
                     .limit(config.num_questions or 0)
                     .all()
                 )
-                random.shuffle(questions)
 
             if not questions:
                 raise ValueError(f'No hay preguntas para la materia "{config.subject}"')
+
+        # Remove duplicates and shuffle final question list
+        questions = list({q.id: q for q in questions}.values())
+        random.shuffle(questions)
 
         attempt = m.Attempt(
             exam_id=config.exam_id or None,

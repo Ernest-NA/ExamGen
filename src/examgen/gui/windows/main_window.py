@@ -16,20 +16,16 @@ import os
 env_path = Path(__file__).resolve().parents[3] / ".env"
 load_dotenv(env_path)
 
-from examgen.core.settings import AppSettings
-from examgen.core.database import get_engine, init_db
-
-settings = AppSettings.load()
-DB_PATH = Path(settings.data_db_path or Path.home() / "Documents" / "examgen.db")
+from examgen.config import settings, db_path
 LOG_LEVEL = os.getenv("LOG_LEVEL", "WARNING").upper()
 THEME_MAP = {"dark": "Oscuro", "light": "Claro"}
 THEME = THEME_MAP.get(settings.theme, "Oscuro")
 
-logging.basicConfig(level=getattr(logging, LOG_LEVEL, logging.WARNING))
+logger = logging.getLogger(__name__)
 if LOG_LEVEL == "DEBUG":
-    print(f"Loaded .env from {env_path}")
-    print(f"DB path: {DB_PATH}")
-    print(f"Theme  : {THEME}")
+    logger.debug("Loaded .env from %s", env_path)
+    logger.debug("DB path: %s", db_path())
+    logger.debug("Theme  : %s", THEME)
 
 try:
     from examgen.config import set_theme  # type: ignore
@@ -38,17 +34,15 @@ except Exception:
 if set_theme:
     set_theme(THEME)
 
-from PySide6.QtCore import Qt
 from PySide6.QtGui import QAction, QFont
 from PySide6.QtWidgets import (
     QApplication,
-    QLabel,
     QMainWindow,
     QMenuBar,
     QStatusBar,
     QMessageBox,
     QWidget,
-    QDialog,
+    QStackedWidget,
 )
 
 from examgen.core import models as m
@@ -65,23 +59,25 @@ class MainWindow(QMainWindow):
         self.setWindowTitle("ExamGen")
         self.resize(1280, 720)
 
-        # Referencia opcional a la ventana de preguntas
-        self._questions_win: "QuestionsWindow | None" = None
-
         # Settings y tema actual
         self.settings = settings
         self.current_theme = THEME
         self._apply_theme()
 
-        # Widget central placeholder
-        self.setCentralWidget(
-            QLabel("ExamGen – bienvenido", alignment=Qt.AlignmentFlag.AlignCenter)
-        )
+        # --- stack central ---
+        self.pages = QStackedWidget()
+        self.setCentralWidget(self.pages)
+        self._page_lookup: dict[str, QWidget] = {}
+
+        # -- las páginas se eligen desde el menú principal --
+
+        # página inicial
+        self._show_page("questions")
 
         # Menú y barra de estado
         self._create_menu_bar()
         self._create_status_bar()
-        self._set_app_actions_enabled(bool(self.settings.data_db_path))
+        self._set_app_actions_enabled(bool(self.settings.db_folder))
 
     # --------------------------------------------------------------------- #
     #  Menú                                                                  #
@@ -93,7 +89,8 @@ class MainWindow(QMainWindow):
         # --- Archivo ------------------------------------------------------ #
         menu_file = mb.addMenu("Archivo")
 
-        act_settings = QAction("Configuración…", self, triggered=self._open_settings)
+        act_settings = QAction("Configuración…", self)
+        act_settings.triggered.connect(lambda: self._show_page("settings"))
         act_exit = QAction("Salir", self, triggered=self.close)
 
         menu_file.addAction(act_settings)
@@ -103,36 +100,75 @@ class MainWindow(QMainWindow):
         # --- Aplicación --------------------------------------------------- #
         self.menu_app = mb.addMenu("Aplicación")
 
-        self.act_exam = QAction("Hacer examen…", self, triggered=self._start_exam)
-        self.act_questions = QAction("Preguntas", self, triggered=self._show_questions)
-        self.act_history = QAction("Historial", self, triggered=self._show_history)
+        self.act_exam = QAction("Hacer examen…", self)
+        self.act_exam.triggered.connect(self._start_exam)
+        self.act_questions = QAction("Preguntas", self)
+        self.act_questions.triggered.connect(
+            lambda: self._show_page("questions")
+        )
+        self.act_history = QAction("Historial", self)
+        self.act_history.triggered.connect(
+            lambda: self._show_page("history")
+        )
 
-        self.menu_app.addActions([self.act_exam, self.act_questions, self.act_history])
+        self.menu_app.addActions(
+            [self.act_exam, self.act_questions, self.act_history]
+        )
 
         self.menu_app.aboutToShow.connect(self._warn_if_disabled)
 
+        self._menu_actions = {
+            "config": act_settings,
+            "exam": self.act_exam,
+            "questions": self.act_questions,
+            "history": self.act_history,
+        }
+
     def _start_exam(self) -> None:
         from examgen.gui.dialogs.question_dialog import ExamConfigDialog
-        from examgen.gui.widgets.option_table import start_exam
+        from examgen.core.services.exam_service import (
+            create_attempt,
+            NotEnoughQuestionsError,
+        )
+        from examgen.gui.pages.exam_page import ExamPage
 
         cfg = ExamConfigDialog.get_config(self)
-        if cfg:
-            try:
-                if start_exam(cfg, parent=self):
-                    print("Examen completado")
-            except ValueError:
-                QMessageBox.warning(
-                    self,
-                    "No hay preguntas",
-                    f'No hay preguntas para la materia "{cfg.subject}"',
-                )
+        if not cfg:
+            return
+        try:
+            attempt = create_attempt(cfg)
+        except NotEnoughQuestionsError as exc:
+            QMessageBox.warning(
+                self,
+                "Preguntas insuficientes",
+                (
+                    f'Solo hay {exc.available} preguntas disponibles para '
+                    f'"{cfg.subject}"'
+                ),
+            )
+            return
+        except ValueError:
+            QMessageBox.warning(
+                self,
+                "No hay preguntas",
+                f'No hay preguntas para la materia "{cfg.subject}"',
+            )
+            return
+
+        def _cleanup() -> None:
+            page = self._page_lookup.pop("exam", None)
+            if page is not None:
+                self.pages.removeWidget(page)
+                page.deleteLater()
+            self._show_page("history")
+
+        page = ExamPage(attempt, on_finished=_cleanup, parent=self)
+        self._page_lookup["exam"] = page
+        self.pages.addWidget(page)
+        self.pages.setCurrentWidget(page)
 
     def _open_settings(self) -> None:
-        from examgen.gui.dialogs.settings_dialog import SettingsDialog
-
-        dlg = SettingsDialog(self.settings, self)
-        if dlg.exec() == QDialog.Accepted:
-            self._set_app_actions_enabled(bool(self.settings.data_db_path))
+        self._show_page("settings")
 
     def _set_app_actions_enabled(self, enabled: bool) -> None:
         for act in (self.act_exam, self.act_questions, self.act_history):
@@ -143,7 +179,10 @@ class MainWindow(QMainWindow):
             QMessageBox.warning(
                 self,
                 "Base de datos no seleccionada",
-                "Primero selecciona una base de datos en Archivo \u25ba Configuraci\u00f3n.",
+                (
+                    "Primero selecciona una base de datos en "
+                    "Archivo \u25ba Configuración."
+                ),
             )
             self.menu_app.hideTearOffMenu()
 
@@ -165,39 +204,48 @@ class MainWindow(QMainWindow):
         if app is not None:
             app.setStyleSheet(Style.sheet(self.current_theme) + BUTTON_STYLE)
 
+    # ------------------------------------------------------------------ #
+    #  Navegación                                                        #
+    # ------------------------------------------------------------------ #
+    def _show_page(self, name: str) -> None:
+        if name not in self._page_lookup:
+            if name == "questions":
+                from examgen.gui.pages.questions_page import QuestionsPage
+
+                widget = QuestionsPage(self)
+            elif name == "history":
+                from examgen.gui.pages.history_page import HistoryPage
+
+                widget = HistoryPage(self)
+            elif name == "settings":
+                from examgen.gui.pages.settings_page import SettingsPage
+
+                widget = SettingsPage(self.settings, self)
+            else:
+                return
+            self._page_lookup[name] = widget
+            self.pages.addWidget(widget)
+        if self.pages.currentWidget() is not self._page_lookup[name]:
+            self.pages.setCurrentWidget(self._page_lookup[name])
+
     # --------------------------------------------------------------------- #
     #  Diálogo de pregunta                                                  #
     # --------------------------------------------------------------------- #
     def _open_question_dialog(self) -> None:
-        QuestionDialog(self, db_path=DB_PATH).exec()
+        QuestionDialog(self, db_path=db_path()).exec()
 
     def _show_questions(self) -> None:
-        from PySide6.QtCore import Qt
-        from examgen.gui.windows.questions_window import QuestionsWindow
-
-        # Si aún no hay ventana o fue destruida, crea una nueva
-        if self._questions_win is None:
-            self._questions_win = QuestionsWindow()
-            self._questions_win.destroyed.connect(
-                lambda _: setattr(self, "_questions_win", None)
-            )
-
-        # Mostrar y activar la ventana existente
-        self._questions_win.show()
-        self._questions_win.raise_()
-        self._questions_win.activateWindow()
+        self._show_page("questions")
 
     def _show_history(self) -> None:
-        from examgen.gui.dialogs.history_dialog import AttemptsHistoryDialog
-
-        AttemptsHistoryDialog(self).exec()
+        self._show_page("history")
 
 
 # ------------------------------------------------------------------------- #
 #  Entry-point                                                              #
 # ------------------------------------------------------------------------- #
 def main() -> None:
-    m.init_db(DB_PATH)  # crea BD si no existe
+    m.init_db(db_path())  # crea BD si no existe
 
     app = QApplication(sys.argv)
     apply_app_styles(app)

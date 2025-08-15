@@ -16,7 +16,7 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
-from examgen.core.settings import AppSettings
+from examgen.config import AppSettings, db_path
 from examgen.core.database import set_engine
 
 
@@ -34,7 +34,7 @@ class SettingsDialog(QDialog):
         self.cb_theme.setCurrentText(settings.theme)
 
         # --- Campo BD ---
-        self.le_db = QLineEdit(settings.data_db_path or "")
+        self.le_db = QLineEdit(settings.db_folder or "")
         self.le_db.setReadOnly(True)
         btn_choose = QPushButton("Elegir…", clicked=self._choose_db)
 
@@ -54,24 +54,18 @@ class SettingsDialog(QDialog):
         root.addWidget(buttons)
 
     def _choose_db(self) -> None:
-        start_dir = (
-            Path(self.settings.data_db_path).parent
-            if self.settings.data_db_path
-            else Path(QStandardPaths.writableLocation(QStandardPaths.DocumentsLocation))
-        )
         path = QFileDialog.getExistingDirectory(
-            self,
-            "Seleccionar carpeta de datos",
-            str(start_dir),
+            self, "Seleccionar carpeta de datos"
         )
-        if not path:
-            return
-        self.le_db.setText(str(Path(path) / "examgen.db"))
+        if path:
+            self.le_db.setText(path)
 
     def accept(self) -> None:  # type: ignore[override]
         self.settings.theme = self.cb_theme.currentText()
-        self.settings.data_db_path = self.le_db.text() or None
+        import examgen.config as cfg
+        self.settings.db_folder = self.le_db.text() or None
+        cfg.db_folder = self.settings.db_folder
         self.settings.save()
-        if self.settings.data_db_path:
-            set_engine(Path(self.settings.data_db_path))
+        if self.settings.db_folder:
+            set_engine(db_path())
         super().accept()

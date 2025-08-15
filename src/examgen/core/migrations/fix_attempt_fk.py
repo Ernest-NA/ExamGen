@@ -1,7 +1,5 @@
 from __future__ import annotations
 
-from pathlib import Path
-
 import sqlalchemy as sa
 from sqlalchemy import (
     Column,
@@ -10,16 +8,13 @@ from sqlalchemy import (
     MetaData,
     String,
     Table,
-    create_engine,
 )
-
-from examgen.core.settings import AppSettings
+from examgen.core.database import get_engine
 
 
 def run() -> None:
     """Fix attempt_question FK pointing to attempt.id."""
-    db_path = Path(AppSettings.load().data_db_path or Path.home() / "Documents" / "examgen.db")
-    eng = create_engine(f"sqlite:///{db_path}", future=True)
+    eng = get_engine()
     meta = MetaData()
     try:
         meta.reflect(bind=eng, resolve_fks=False)
@@ -50,7 +45,9 @@ def run() -> None:
 
     with eng.begin() as conn:
         print("Migrando FK de attempt_question ...")
-        conn.exec_driver_sql("ALTER TABLE attempt_question RENAME TO attempt_question_old;")
+        conn.exec_driver_sql(
+            "ALTER TABLE attempt_question RENAME TO attempt_question_old;"
+        )
 
         meta2 = MetaData()
         Table(
@@ -91,4 +88,3 @@ def run() -> None:
 
         conn.exec_driver_sql("DROP TABLE attempt_question_old;")
         print("Migración completada.")
-

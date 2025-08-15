@@ -1,0 +1,13 @@
+QAbstractButton {
+    padding: 4px 6px;
+}
+QAbstractButton:hover {
+    background: #212121;
+}
+QFrame#explFrame{
+    border:1px solid #4caf50;
+    background:#141414;
+    border-radius:6px;
+    padding:4px 6px;
+}
+QLabel#lblExpl{ color:#4caf50; }

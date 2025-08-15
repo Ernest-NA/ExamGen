@@ -1,9 +1,9 @@
 from __future__ import annotations
 
 """
-ExamGen – ORM models (single‑table inheritance con columna `type` + JSON `meta`).
-Ejecuta:       python -m examgen.models
-para crear / actualizar examgen.db en la raíz del proyecto.
+ExamGen – ORM models (single-table inheritance con columna ``type`` y ``meta``.
+Ejecuta ``python -m examgen.models`` para crear o actualizar la base de datos
+predeterminada.
 """
 
 # ruff: noqa: E402
@@ -22,6 +22,7 @@ from sqlalchemy import (
     JSON,
     String,
     Text,
+    UniqueConstraint,
     create_engine,
     Enum as SQLAEnum,
     inspect,
@@ -33,6 +34,7 @@ from sqlalchemy.orm import (
     mapped_column,
     relationship,
 )
+from examgen.config import DEFAULT_DB
 
 
 class SelectorTypeEnum(str, _Enum):
@@ -136,6 +138,7 @@ class AnswerOption(Base):
 
 class ExamQuestion(Base):
     __tablename__ = "exam_question"
+    __table_args__ = (UniqueConstraint("exam_id", "question_id"),)
 
     exam_id: Mapped[int] = mapped_column(ForeignKey("exam.id"), nullable=False)
     question_id: Mapped[int] = mapped_column(ForeignKey("question.id"), nullable=False)
@@ -265,11 +268,14 @@ def _create_examiner_tables(engine: Engine) -> None:
 # -----------------------------------------------------------------------------
 
 
-def get_engine(db_path: str | Path = "examgen.db"):
+
+def get_engine(db_path: str | Path = DEFAULT_DB) -> Engine:
+    """Create an engine bound to ``db_path``."""
     return create_engine(f"sqlite:///{db_path}", echo=False, future=True)
 
 
-def init_db(db_path: str | Path = "examgen.db") -> None:
+def init_db(db_path: str | Path = DEFAULT_DB) -> None:
+    """Initialise database at ``db_path`` applying migrations."""
     from examgen.core.database import set_engine, get_engine, init_db as _init
 
     set_engine(Path(db_path))
