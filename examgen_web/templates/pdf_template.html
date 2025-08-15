@@ -1,0 +1,56 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <title>{{ exam.title or "Examen" }}</title>
+  <style>
+    @page { size: A4; margin: 20mm; }
+    body { font-family: "DejaVu Sans", system-ui, -apple-system, "Segoe UI", Roboto, Ubuntu, "Helvetica Neue", Arial; color: #0f172a; }
+    h1,h2,h3 { margin: 0 0 .4rem 0; }
+    .exam-meta { color: #475569; font-size: .95rem; margin-bottom: .8rem; }
+    .badge { font-size: .75rem; padding: .1rem .4rem; border: 1px solid #cbd5e1; border-radius: .4rem; }
+    .section { page-break-inside: avoid; margin-top: 1rem; }
+    .question { margin: .5rem 0; }
+    .choices { margin: .2rem 0 .3rem 1rem; }
+    .answer { margin: .2rem 0; color: #065f46; }
+    ol { padding-left: 1.1rem; }
+    ul { padding-left: 1.1rem; }
+  </style>
+</head>
+<body>
+  <h2>{{ exam.title or exam["title"] }}</h2>
+  <div class="exam-meta">
+    {% if exam.description or exam["description"] %}<div>{{ exam.description or exam["description"] }}</div>{% endif %}
+    {% if exam.language or exam["language"] %}<span class="badge">Idioma: {{ exam.language or exam["language"] }}</span>{% endif %}
+  </div>
+
+  {% for sec in sections %}
+    <section class="section">
+      <h3>Sección {{ loop.index }} — {{ sec.title or sec["title"] }}</h3>
+      {% set qs = sec.questions or sec["questions"] %}
+      {% if qs and qs|length > 0 %}
+        <ol>
+          {% for q in qs %}
+            <li class="question">
+              <div>{{ q.stem or q["stem"] }}</div>
+              {% set choices = q.choices or q["choices"] %}
+              {% if choices and choices|length > 0 %}
+                <ul class="choices">
+                  {% for c in choices %}
+                    <li>{{ c }}</li>
+                  {% endfor %}
+                </ul>
+              {% endif %}
+              {% if show_solutions and (q.answer or q["answer"]) %}
+                <div class="answer"><strong>Solución:</strong> {{ q.answer or q["answer"] }}</div>
+              {% endif %}
+            </li>
+          {% endfor %}
+        </ol>
+      {% else %}
+        <p>No hay preguntas en esta sección.</p>
+      {% endif %}
+    </section>
+  {% endfor %}
+</body>
+</html>

@@ -1,0 +1,43 @@
+{% extends "base.html" %}
+{% from 'partials/_macros.html' import button, icon %}
+{% block title %}Exámenes · ExamGen{% endblock %}
+{% block content %}
+<section class="card">
+  <header style="display:flex;justify-content:space-between;align-items:center;gap:1rem">
+    <h2>Exámenes</h2>
+    {{ button((icon('plus') ~ ' Nuevo')|safe, href=url_for('exams.new_exam')) }}
+  </header>
+
+  {% if exams and exams|length > 0 %}
+    <div class="table-wrap" style="margin-top:1rem">
+      <table>
+        <thead>
+          <tr>
+            <th>ID</th>
+            <th>Título</th>
+            <th>Idioma</th>
+            <th>Creado</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for e in exams %}
+          <tr>
+            <td>{{ e.id or e["id"] }}</td>
+            <td>{{ e.title or e["title"] }}</td>
+            <td>{{ e.language or e["language"] or "—" }}</td>
+            <td>{% set ca = e.created_at or e["created_at"] %}{{ ca if ca else "—" }}</td>
+            <td style="text-align:right">
+              {{ button('Abrir', href=url_for('exams.exam_detail', exam_id=e.id or e['id']), variant='secondary') }}
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  {% else %}
+    <p class="muted" style="margin-top:1rem">No hay exámenes todavía.</p>
+    <p>{{ button('Crear el primero', href=url_for('exams.new_exam')) }}</p>
+  {% endif %}
+</section>
+{% endblock %}

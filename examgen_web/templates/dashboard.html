@@ -1,0 +1,14 @@
+{% extends "base.html" %}
+{% from 'partials/_macros.html' import button, icon %}
+{% block title %}ExamGen · Dashboard{% endblock %}
+{% block content %}
+  <section class="card">
+    <h1>Bienvenido a ExamGen (Web Local)</h1>
+    <p>Gestiona bancos de preguntas y genera exámenes personalizados, 100% en tu equipo.</p>
+    <div class="actions">
+      {{ button((icon('plus') ~ ' Crear examen')|safe, href=url_for('exams.new_exam')) }}
+      {{ button('Ver exámenes', href=url_for('exams.list_exams'), variant='secondary') }}
+    </div>
+    <p class="muted" style="margin-top:1rem">Nota: Estas rutas se habilitarán en <strong>EXG‑6.3</strong>.</p>
+  </section>
+{% endblock %}
