@@ -1,71 +1,41 @@
 {% extends "base.html" %}
-{% if mode == "edit" %}
-  {% set page_title = "Editar pregunta" %}
-{% else %}
-  {% set page_title = "Nueva pregunta" %}
-{% endif %}
+{% from 'partials/_macros.html' import button, field %}
+{% if mode == "edit" %}{% set page_title = "Editar pregunta" %}{% else %}{% set page_title = "Nueva pregunta" %}{% endif %}
 {% block title %}{{ page_title }} · ExamGen{% endblock %}
 {% block content %}
 <section class="card">
-  <h2 style="margin-top:0">{{ page_title }}</h2>
-
+  <h2>{{ page_title }}</h2>
   {% if mode == "edit" %}
-    <form method="post" action="/questions/{{ question_id }}" style="display:grid;gap:1rem;max-width:880px">
+    <form method="post" action="/questions/{{ question_id }}" style="max-width:880px">
   {% else %}
-    <form method="post" action="/sections/{{ section_id }}/questions" style="display:grid;gap:1rem;max-width:880px">
+    <form method="post" action="/sections/{{ section_id }}/questions" style="max-width:880px">
   {% endif %}
-
-    <label>
-      <span>Tipo</span>
-      {% set qtype = form.type or "mcq" %}
-      <select name="type">
-        <option value="mcq" {{ "selected" if qtype=="mcq" else "" }}>Opción múltiple</option>
-        <option value="true_false" {{ "selected" if qtype=="true_false" else "" }}>Verdadero/Falso</option>
-        <option value="short" {{ "selected" if qtype=="short" else "" }}>Respuesta corta</option>
-      </select>
-    </label>
-
-    <label>
-      <span>Enunciado</span>
-      <textarea name="stem" rows="4" required>{{ form.stem }}</textarea>
-      {% if errors.stem %}<small style="color:#b91c1c">{{ errors.stem }}</small>{% endif %}
-    </label>
-
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:1rem">
-      <label>
-        <span>Opciones (MCQ) — JSON o "A;;B;;C;;D"</span>
-        <textarea name="choices" rows="3">{{ form.choices }}</textarea>
-      </label>
-      <label>
-        <span>Respuesta</span>
-        <input name="answer" type="text" value="{{ form.answer }}" />
-      </label>
+    {% set qtype = form.type or 'mcq' %}
+    {% set type_opts %}
+      <option value="mcq" {{ 'selected' if qtype=='mcq' else '' }}>Opción múltiple</option>
+      <option value="true_false" {{ 'selected' if qtype=='true_false' else '' }}>Verdadero/Falso</option>
+      <option value="short" {{ 'selected' if qtype=='short' else '' }}>Respuesta corta</option>
+    {% endset %}
+    {{ field('type','Tipo', type='select', value=type_opts) }}
+    {{ field('stem','Enunciado', type='textarea', value=form.stem, error=errors.stem, attrs='required') }}
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:var(--eg-gap)">
+      {{ field('choices','Opciones (MCQ) — JSON o "A;;B"', type='textarea', value=form.choices) }}
+      {{ field('answer','Respuesta', value=form.answer) }}
     </div>
-
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:1rem">
-      <label>
-        <span>Dificultad</span>
-        {% set diff = form.difficulty or "medium" %}
-        <select name="difficulty">
-          <option value="easy" {{ "selected" if diff=="easy" else "" }}>Fácil</option>
-          <option value="medium" {{ "selected" if diff=="medium" else "" }}>Media</option>
-          <option value="hard" {{ "selected" if diff=="hard" else "" }}>Difícil</option>
-        </select>
-      </label>
-      <label>
-        <span>Tags — JSON o "tag1;;tag2"</span>
-        <input name="tags" type="text" value="{{ form.tags }}" />
-      </label>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:var(--eg-gap)">
+      {% set diff = form.difficulty or 'medium' %}
+      {% set diff_opts %}
+        <option value="easy" {{ 'selected' if diff=='easy' else '' }}>Fácil</option>
+        <option value="medium" {{ 'selected' if diff=='medium' else '' }}>Media</option>
+        <option value="hard" {{ 'selected' if diff=='hard' else '' }}>Difícil</option>
+      {% endset %}
+      {{ field('difficulty','Dificultad', type='select', value=diff_opts) }}
+      {{ field('tags','Tags — JSON o "tag1;;tag2"', value=form.tags) }}
     </div>
-
-    <label>
-      <span>Metadata (opcional)</span>
-      <textarea name="metadata" rows="2">{{ form.metadata }}</textarea>
-    </label>
-
+    {{ field('metadata','Metadata (opcional)', type='textarea', value=form.metadata) }}
     <div class="actions">
-      <button class="btn" type="submit">{{ "Guardar cambios" if mode=="edit" else "Crear" }}</button>
-      <a class="btn secondary" href="/exams/{{ exam_id }}">Cancelar</a>
+      {{ button('Guardar cambios' if mode=='edit' else 'Crear', type='submit') }}
+      {{ button('Cancelar', href='/exams/' ~ exam_id, variant='secondary') }}
     </div>
   </form>
 </section>

@@ -1,0 +1,50 @@
+:root{
+  --eg-maxw: 1040px;
+  --eg-radius: 12px;
+  --eg-gap: 1rem;
+  --eg-color-bg: #f8fafc;
+  --eg-color-fg: #0f172a;
+  --eg-color-muted:#475569;
+  --eg-border: #e5e7eb;
+  --eg-primary: #111827;
+  --eg-primary-ink: #fff;
+  --eg-accent: #2563eb;
+  --eg-success:#065f46;
+  --eg-danger: #b91c1c;
+}
+@media (prefers-color-scheme: dark){
+  :root{
+    --eg-color-bg: #0b1220;
+    --eg-color-fg: #e5e7eb;
+    --eg-color-muted:#94a3b8;
+    --eg-border: #334155;
+    --eg-primary: #e5e7eb;
+    --eg-primary-ink: #0b1220;
+    --eg-accent: #60a5fa;
+  }
+}
+body{background:var(--eg-color-bg);color:var(--eg-color-fg);}
+.container{max-width:var(--eg-maxw);margin-inline:auto;padding:var(--eg-gap);}
+.card{background:var(--pico-background, #fff);border:1px solid var(--eg-border);border-radius:var(--eg-radius);padding:var(--eg-gap);box-shadow:0 1px 2px rgba(16,24,40,.04);}
+.actions{display:flex;gap:.75rem;flex-wrap:wrap;}
+.btn{display:inline-block;padding:.6rem 1rem;border-radius:var(--eg-radius);border:1px solid var(--eg-primary);background:var(--eg-primary);color:var(--eg-primary-ink);text-decoration:none;}
+.btn.secondary{background:transparent;color:var(--eg-primary);}
+.btn.danger{background:var(--eg-danger);border-color:var(--eg-danger);}
+.badge{display:inline-block;border:1px solid var(--eg-border);border-radius:.5rem;padding:.2rem .5rem;font-size:.75rem;}
+.table-wrap{overflow-x:auto;}
+.sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap;border:0;}
+.skip-link{position:absolute;top:0;left:0;background:var(--eg-accent);color:#fff;padding:.5rem 1rem;transform:translateY(-100%);transition:transform .2s;}
+.skip-link:focus{transform:translateY(0);}
+:focus-visible{outline:2px solid var(--eg-accent);outline-offset:2px;}
+.table-wrap table{width:100%;border-collapse:collapse;}
+.table-wrap tr:nth-child(even){background-color:rgba(0,0,0,.02);}
+form .field{display:grid;gap:.25rem;}
+form .field input,form .field textarea,form .field select{margin-top:.25rem;}
+form .field small{color:var(--eg-danger);}
+nav a.active{font-weight:600;text-decoration:underline;}
+.muted{color:var(--eg-color-muted);}
+.toasts{position:fixed;top:1rem;right:1rem;display:grid;gap:.5rem;z-index:1000;}
+.toast{padding:.5rem 1rem;border-radius:var(--eg-radius);background:var(--eg-primary);color:var(--eg-primary-ink);}
+.toast.success{background:var(--eg-success);color:#fff;}
+.toast.error{background:var(--eg-danger);color:#fff;}
+.toast.info{background:var(--eg-accent);color:#fff;}

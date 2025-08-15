@@ -1,23 +1,15 @@
 {% extends "base.html" %}
+{% from 'partials/_macros.html' import button, field %}
 {% block title %}Nueva sección · ExamGen{% endblock %}
 {% block content %}
 <section class="card">
-  <h2 style="margin-top:0">Nueva sección</h2>
-  <form method="post" action="/exams/{{ exam.id or exam['id'] }}/sections" style="display:grid;gap:1rem;max-width:720px">
-    <label>
-      <span>Título</span>
-      <input name="title" type="text" required value="{{ form.title }}" />
-      {% if errors.title %}<small style="color:#b91c1c">{{ errors.title }}</small>{% endif %}
-    </label>
-
-    <label>
-      <span>Orden (opcional)</span>
-      <input name="order" type="number" min="1" value="{{ form.order }}" />
-    </label>
-
+  <h2>Nueva sección</h2>
+  <form method="post" action="/exams/{{ exam.id or exam['id'] }}/sections" style="max-width:720px">
+    {{ field('title','Título', value=form.title, error=errors.title, attrs='required') }}
+    {{ field('order','Orden (opcional)', type='number', value=form.order, attrs='min="1"') }}
     <div class="actions">
-      <button class="btn" type="submit">Crear</button>
-      <a class="btn secondary" href="/exams/{{ exam.id or exam['id'] }}">Cancelar</a>
+      {{ button('Crear', type='submit') }}
+      {{ button('Cancelar', href='/exams/' ~ (exam.id or exam['id']), variant='secondary') }}
     </div>
   </form>
 </section>

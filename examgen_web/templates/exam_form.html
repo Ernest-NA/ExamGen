@@ -1,33 +1,22 @@
 {% extends "base.html" %}
+{% from 'partials/_macros.html' import button, field %}
 {% block title %}Nuevo examen · ExamGen{% endblock %}
 {% block content %}
 <section class="card">
-  <h2 style="margin-top:0">Nuevo examen</h2>
-  <form method="post" action="{{ url_for('exams.create_exam') }}" style="display:grid;gap:1rem;max-width:720px">
-    <label>
-      <span>Título</span>
-      <input name="title" type="text" required value="{{ form.title }}" />
-      {% if errors.title %}<small style="color:#b91c1c">{{ errors.title }}</small>{% endif %}
-    </label>
-
-    <label>
-      <span>Descripción</span>
-      <textarea name="description" rows="3">{{ form.description }}</textarea>
-    </label>
-
-    <label>
-      <span>Idioma</span>
-      <select name="language">
-        {% set lang = form.language or "es-ES" %}
-        <option value="es-ES" {{ "selected" if lang=="es-ES" else "" }}>Español (España)</option>
-        <option value="es-LA" {{ "selected" if lang=="es-LA" else "" }}>Español (LatAm)</option>
-        <option value="en-US" {{ "selected" if lang=="en-US" else "" }}>English (US)</option>
-      </select>
-    </label>
-
+  <h2>Nuevo examen</h2>
+  <form method="post" action="{{ url_for('exams.create_exam') }}" style="max-width:720px">
+    {{ field('title','Título', value=form.title, error=errors.title, attrs='required') }}
+    {{ field('description','Descripción', type='textarea', value=form.description) }}
+    {% set lang = form.language or 'es-ES' %}
+    {% set options %}
+      <option value="es-ES" {{ 'selected' if lang=='es-ES' else '' }}>Español (España)</option>
+      <option value="es-LA" {{ 'selected' if lang=='es-LA' else '' }}>Español (LatAm)</option>
+      <option value="en-US" {{ 'selected' if lang=='en-US' else '' }}>English (US)</option>
+    {% endset %}
+    {{ field('language','Idioma', type='select', value=options) }}
     <div class="actions">
-      <button class="btn" type="submit">Crear</button>
-      <a class="btn secondary" href="{{ url_for('exams.list_exams') }}">Cancelar</a>
+      {{ button('Crear', type='submit') }}
+      {{ button('Cancelar', href=url_for('exams.list_exams'), variant='secondary') }}
     </div>
   </form>
 </section>

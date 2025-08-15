@@ -1,0 +1,9 @@
+{% with msgs = get_flashed_messages(with_categories=True) %}
+  {% if msgs %}
+    <div class="toasts">
+    {% for category, message in msgs %}
+      <div class="toast {{ category }}" data-timeout="4000">{{ message }}</div>
+    {% endfor %}
+    </div>
+  {% endif %}
+{% endwith %}
