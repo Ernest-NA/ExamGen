@@ -1,0 +1,25 @@
+{% extends "base.html" %}
+{% block title %}{{ (exam.title or exam["title"]) ~ " · ExamGen" }}{% endblock %}
+{% block content %}
+<section class="card">
+  <header style="display:flex;justify-content:space-between;align-items:center;gap:1rem">
+    <div>
+      <h2 style="margin:0">{{ exam.title or exam["title"] }}</h2>
+      <p style="margin:.25rem 0;color:#475569">{{ exam.description or exam["description"] or "" }}</p>
+      <div class="badge">Idioma: {{ exam.language or exam["language"] or "—" }}</div>
+    </div>
+    <div class="actions">
+      <a class="btn secondary" href="{{ url_for('exams.list_exams') }}">Volver</a>
+      <a class="btn" href="/exams/{{ exam.id or exam['id'] }}/preview">Previsualizar</a>
+    </div>
+  </header>
+</section>
+
+<section class="card" style="margin-top:1rem">
+  <h3 style="margin-top:0">Secciones</h3>
+  <p style="color:#475569">La gestión de secciones y preguntas se añadirá en <strong>EXG‑6.4</strong>.</p>
+  <div class="actions">
+    <a class="btn disabled" aria-disabled="true" title="Disponible en EXG‑6.4">+ Añadir sección</a>
+  </div>
+</section>
+{% endblock %}

@@ -1,0 +1,45 @@
+{% extends "base.html" %}
+{% block title %}Exámenes · ExamGen{% endblock %}
+{% block content %}
+<section class="card">
+  <header style="display:flex;justify-content:space-between;align-items:center;gap:1rem">
+    <h2 style="margin:0">Exámenes</h2>
+    <a class="btn" href="{{ url_for('exams.new_exam') }}">+ Nuevo</a>
+  </header>
+
+  {% if exams and exams|length > 0 %}
+    <div style="overflow-x:auto;margin-top:1rem">
+      <table>
+        <thead>
+          <tr>
+            <th style="white-space:nowrap">ID</th>
+            <th>Título</th>
+            <th style="white-space:nowrap">Idioma</th>
+            <th style="white-space:nowrap">Creado</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for e in exams %}
+          <tr>
+            <td>{{ e.id or e["id"] }}</td>
+            <td>{{ e.title or e["title"] }}</td>
+            <td>{{ e.language or e["language"] or "—" }}</td>
+            <td>
+              {% set ca = e.created_at or e["created_at"] %}
+              {{ ca if ca else "—" }}
+            </td>
+            <td style="text-align:right; white-space:nowrap">
+              <a class="btn secondary" href="{{ url_for('exams.exam_detail', exam_id=e.id or e['id']) }}">Abrir</a>
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  {% else %}
+    <p style="margin-top:1rem;color:#475569">No hay exámenes todavía.</p>
+    <p><a class="btn" href="{{ url_for('exams.new_exam') }}">Crear el primero</a></p>
+  {% endif %}
+</section>
+{% endblock %}
