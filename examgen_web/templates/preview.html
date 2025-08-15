@@ -1,0 +1,86 @@
+{% extends "base.html" %}
+{% block title %}Previsualización · {{ exam.title or "Examen" }}{% endblock %}
+{% block head %}
+<style>
+  /* Diseño imprimible A4 */
+  @page { size: A4; margin: 20mm; }
+  .exam-wrapper { max-width: 850px; margin: 0 auto; }
+  .exam-header { margin-bottom: 1rem; }
+  .exam-meta { color: #475569; font-size: .95rem; }
+  .section { margin-top: 1.25rem; }
+  .section h3 { margin: .2rem 0 .5rem; }
+  .question { margin: .65rem 0; }
+  .choices { margin: .25rem 0 .5rem 1.25rem; }
+  .answer { margin: .25rem 0; color: #064e3b; }
+  .toolbar { display:flex; gap: .5rem; flex-wrap: wrap; margin-bottom: 1rem; }
+  .btn-link { text-decoration: none; border: 1px solid #1f2937; padding: .45rem .8rem; border-radius: .6rem; }
+  .muted { color: #64748b; }
+  .badge { font-size: .75rem; padding: .2rem .5rem; border-radius: .5rem; border: 1px solid #cbd5e1; }
+  @media print {
+    .toolbar, header, footer { display: none; }
+    .exam-wrapper { max-width: 100%; }
+  }
+</style>
+{% endblock %}
+{% block content %}
+<section class="card">
+  <div class="exam-wrapper">
+    <div class="toolbar">
+      <a class="btn-link" href="/exams/{{ exam.id or exam['id'] }}">← Volver</a>
+      <form method="post" action="/exams/{{ exam.id or exam['id'] }}/export?fmt=csv&download=1{% if show_solutions %}&solutions=1{% endif %}">
+        <button class="btn" type="submit">Exportar CSV</button>
+      </form>
+      <form method="post" action="/exams/{{ exam.id or exam['id'] }}/export?fmt=json&download=1{% if show_solutions %}&solutions=1{% endif %}">
+        <button class="btn" type="submit">Exportar JSON</button>
+      </form>
+      <form method="post" action="/exams/{{ exam.id or exam['id'] }}/export?fmt=pdf&download=1{% if show_solutions %}&solutions=1{% endif %}">
+        <button class="btn" type="submit">Exportar PDF</button>
+      </form>
+      {% if show_solutions %}
+        <a class="btn-link" href="?solutions=0">Ocultar soluciones</a>
+      {% else %}
+        <a class="btn-link" href="?solutions=1">Mostrar soluciones</a>
+      {% endif %}
+      <span class="muted">Imprime esta página (Ctrl/Cmd+P) para una copia rápida.</span>
+    </div>
+
+    <header class="exam-header">
+      <h2 style="margin:0">{{ exam.title or exam["title"] }}</h2>
+      {% set lang = exam.language or exam["language"] %}
+      <div class="exam-meta">
+        {% if exam.description or exam["description"] %}<div>{{ exam.description or exam["description"] }}</div>{% endif %}
+        {% if lang %}<span class="badge">Idioma: {{ lang }}</span>{% endif %}
+      </div>
+    </header>
+
+    {% for sec in sections %}
+      <section class="section">
+        <h3>Sección {{ loop.index }} — {{ sec.title or sec["title"] }}</h3>
+        {% set qs = sec.questions or sec["questions"] %}
+        {% if qs and qs|length > 0 %}
+          <ol>
+            {% for q in qs %}
+              <li class="question">
+                <div>{{ q.stem or q["stem"] }}</div>
+                {% set choices = q.choices or q["choices"] %}
+                {% if choices and choices|length > 0 %}
+                  <ul class="choices">
+                    {% for c in choices %}
+                      <li>{{ c }}</li>
+                    {% endfor %}
+                  </ul>
+                {% endif %}
+                {% if show_solutions and (q.answer or q["answer"]) %}
+                  <div class="answer"><strong>Solución:</strong> {{ q.answer or q["answer"] }}</div>
+                {% endif %}
+              </li>
+            {% endfor %}
+          </ol>
+        {% else %}
+          <p class="muted">No hay preguntas en esta sección.</p>
+        {% endif %}
+      </section>
+    {% endfor %}
+  </div>
+</section>
+{% endblock %}
