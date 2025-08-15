@@ -7,14 +7,12 @@ from sqlalchemy import text  # type: ignore
 
 from examgen_web.infra.db import get_session
 from examgen_web.infra import services as domain_services
+from examgen_web.infra import history  # <- NUEVO
 
 sections_bp = Blueprint("sections", __name__)
 
-# ---- Helpers ----
-
 def _domain_available(name: str) -> bool:
     return getattr(domain_services, name, None) is not None
-
 
 def _section_columns(session) -> List[str]:
     try:
@@ -23,57 +21,37 @@ def _section_columns(session) -> List[str]:
     except Exception:
         return []
 
-
 def _get_exam_fallback(session, exam_id: int) -> Optional[Dict[str, Any]]:
     try:
-        row = session.execute(
-            text("SELECT * FROM exam WHERE id = :id"), {"id": exam_id}
-        ).mappings().one_or_none()
+        row = session.execute(text("SELECT * FROM exam WHERE id = :id"), {"id": exam_id}).mappings().one_or_none()
         return dict(row) if row else None
     except Exception:
         return None
 
-
-def _insert_section_fallback(
-    session, exam_id: int, title: str, order: Optional[int]
-) -> Optional[int]:
+def _insert_section_fallback(session, exam_id: int, title: str, order: Optional[int]) -> Optional[int]:
     cols = set(_section_columns(session))
     if not cols:
         return None
     now = datetime.now(timezone.utc).isoformat(timespec="seconds")
     data: Dict[str, Any] = {"exam_id": exam_id} if "exam_id" in cols else {}
-    if "title" in cols:
-        data["title"] = title
-    if "order" in cols and order is not None:
-        data["order"] = order
-    if "created_at" in cols:
-        data["created_at"] = now
-    if "updated_at" in cols:
-        data["updated_at"] = now
-    if not data:
-        return None
-    keys = list(data.keys())
-    placeholders = [f":{k}" for k in keys]
-    session.execute(
-        text(
-            f"INSERT INTO section ({', '.join(keys)}) VALUES ({', '.join(placeholders)})"
-        ),
-        data,
-    )
+    if "title" in cols: data["title"] = title
+    if "order" in cols and order is not None: data["order"] = order
+    if "created_at" in cols: data["created_at"] = now
+    if "updated_at" in cols: data["updated_at"] = now
+    keys = list(data.keys()); placeholders = [f":{k}" for k in keys]
+    session.execute(text(f"INSERT INTO section ({', '.join(keys)}) VALUES ({', '.join(placeholders)})"), data)
     session.commit()
     try:
         rid = session.execute(text("SELECT last_insert_rowid()")).scalar()
+    except Exception:
+        rid = None
+    if isinstance(rid, int):
+        return rid
+    try:
+        rid = session.execute(text("SELECT id FROM section ORDER BY id DESC LIMIT 1")).scalar()
         return int(rid) if isinstance(rid, int) else None
     except Exception:
-        try:
-            rid = session.execute(
-                text("SELECT id FROM section ORDER BY id DESC LIMIT 1")
-            ).scalar()
-            return int(rid) if isinstance(rid, int) else None
-        except Exception:
-            return None
-
-# ---- Endpoints ----
+        return None
 
 @sections_bp.get("/exams/<int:exam_id>/sections/new")
 def new_section(exam_id: int):
@@ -81,10 +59,7 @@ def new_section(exam_id: int):
         exam = _get_exam_fallback(s, exam_id)
     if not exam:
         abort(404)
-    return render_template(
-        "section_form.html", exam=exam, errors={}, form={"title": "", "order": ""}
-    )
-
+    return render_template("section_form.html", exam=exam, errors={}, form={"title":"", "order":""})
 
 @sections_bp.post("/exams/<int:exam_id>/sections")
 def create_section(exam_id: int):
@@ -95,7 +70,6 @@ def create_section(exam_id: int):
     errors = {}
     if not title:
         errors["title"] = "El título de la sección es obligatorio."
-
     if errors:
         return (
             render_template(
@@ -107,14 +81,23 @@ def create_section(exam_id: int):
             400,
         )
 
+    section_id: Optional[int] = None
     with get_session() as s:
         if _domain_available("SectionService"):
             try:
                 svc = domain_services.get_section_service(s)
-                svc.add_section(exam_id, title=title, order=order)  # type: ignore[attr-defined]
+                created = svc.add_section(exam_id, title=title, order=order)  # type: ignore[attr-defined]
+                section_id = getattr(created, "id", None)
             except Exception:
-                _insert_section_fallback(s, exam_id, title, order)
+                section_id = _insert_section_fallback(s, exam_id, title, order)
         else:
-            _insert_section_fallback(s, exam_id, title, order)
+            section_id = _insert_section_fallback(s, exam_id, title, order)
+
+    # Historian
+    history.record_event(
+        exam_id=exam_id, entity="section", action="create", entity_id=section_id,
+        summary=f"{title}",
+        before=None, after={"title": title, "order": order}, extra=None
+    )
 
     return redirect(url_for("exams.exam_detail", exam_id=exam_id))

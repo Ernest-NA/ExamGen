@@ -74,4 +74,34 @@
     <p style="margin-top:1rem;color:#475569">Este examen aún no tiene secciones.</p>
   {% endif %}
 </section>
+
+<section class="card" style="margin-top:1rem">
+  <h3 style="margin-top:0">Historial</h3>
+  {% if events and events|length > 0 %}
+    <div style="overflow-x:auto">
+      <table>
+        <thead>
+          <tr>
+            <th style="white-space:nowrap">Fecha (UTC)</th>
+            <th>Acción</th>
+            <th>Entidad</th>
+            <th>Detalle</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for ev in events %}
+          <tr>
+            <td style="white-space:nowrap">{{ ev.ts }}</td>
+            <td style="white-space:nowrap">{{ ev.action }}</td>
+            <td style="white-space:nowrap">{{ ev.entity }}{% if ev.entity_id %} #{{ ev.entity_id }}{% endif %}</td>
+            <td>{{ ev.summary or "" }}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  {% else %}
+    <p style="color:#475569">No hay eventos registrados todavía.</p>
+  {% endif %}
+</section>
 {% endblock %}

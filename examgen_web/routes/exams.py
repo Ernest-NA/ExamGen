@@ -7,14 +7,12 @@ from sqlalchemy import text  # type: ignore
 
 from examgen_web.infra.db import get_session
 from examgen_web.infra import services as domain_services
+from examgen_web.infra import history  # <- NUEVO
 
 exams_bp = Blueprint("exams", __name__)
 
-# ---------- Utilidades comunes ----------
-
 def _domain_available(name: str) -> bool:
     return getattr(domain_services, name, None) is not None
-
 
 def _to_exam_dict(obj: Any) -> Dict[str, Any]:
     get = (lambda k, default=None:
@@ -37,7 +35,6 @@ def _exam_columns(session) -> List[str]:
     except Exception:
         return []
 
-
 def _list_exams_fallback(session) -> List[Dict[str, Any]]:
     cols = _exam_columns(session)
     if not cols:
@@ -46,7 +43,6 @@ def _list_exams_fallback(session) -> List[Dict[str, Any]]:
     sql = "SELECT * FROM exam" + (f" ORDER BY {order}" if order else "")
     return [dict(r) for r in session.execute(text(sql)).mappings().all()]
 
-
 def _get_exam_fallback(session, exam_id: int) -> Optional[Dict[str, Any]]:
     cols = _exam_columns(session)
     if not cols:
@@ -54,7 +50,7 @@ def _get_exam_fallback(session, exam_id: int) -> Optional[Dict[str, Any]]:
     row = session.execute(text("SELECT * FROM exam WHERE id = :id"), {"id": exam_id}).mappings().one_or_none()
     return dict(row) if row else None
 
-# ---- Fallback SECTION & QUESTION para render del detalle ----
+# ---- Section/Question fallback para render ----
 
 def _section_columns(session) -> List[str]:
     try:
@@ -62,7 +58,6 @@ def _section_columns(session) -> List[str]:
         return [row[1] for row in res.fetchall()]
     except Exception:
         return []
-
 
 def _list_sections_fallback(session, exam_id: int) -> List[Dict[str, Any]]:
     cols = _section_columns(session)
@@ -74,14 +69,12 @@ def _list_sections_fallback(session, exam_id: int) -> List[Dict[str, Any]]:
         sql += f" ORDER BY {order_by}"
     return [dict(r) for r in session.execute(text(sql), {"eid": exam_id}).mappings().all()]
 
-
 def _question_columns(session) -> List[str]:
     try:
         res = session.execute(text("PRAGMA table_info(question)"))
         return [row[1] for row in res.fetchall()]
     except Exception:
         return []
-
 
 def _list_questions_fallback(session, section_id: int) -> List[Dict[str, Any]]:
     cols = _question_columns(session)
@@ -109,11 +102,9 @@ def list_exams():
             exams = _list_exams_fallback(s)
     return render_template("exams_list.html", exams=exams)
 
-
 @exams_bp.get("/exams/new")
 def new_exam():
-    return render_template("exam_form.html", errors={}, form={"title": "", "description": "", "language": "es-ES"})
-
+    return render_template("exam_form.html", errors={}, form={"title":"", "description":"", "language":"es-ES"})
 
 @exams_bp.post("/exams")
 def create_exam():
@@ -125,86 +116,56 @@ def create_exam():
     if not title:
         errors["title"] = "El título es obligatorio."
     if errors:
-        return render_template(
-            "exam_form.html",
-            errors=errors,
-            form={"title": title, "description": description, "language": language or "es-ES"},
-        ), 400
+        return render_template("exam_form.html", errors=errors, form={"title": title, "description": description, "language": language or "es-ES"}), 400
 
     with get_session() as s:
         if _domain_available("ExamService"):
             try:
                 svc = domain_services.get_exam_service(s)
-                created = svc.create_exam({
-                    "title": title,
-                    "description": description,
-                    "language": language or "es-ES",
-                })  # type: ignore[attr-defined]
+                created = svc.create_exam({"title": title, "description": description, "language": language or "es-ES"})  # type: ignore[attr-defined]
                 exam_id = getattr(created, "id", None)
                 if exam_id is None:
                     rows = _list_exams_fallback(s)
                     exam_id = rows[0]["id"] if rows and "id" in rows[0] else None
             except Exception:
-                # Fallback a SQL directo
                 cols = set(_exam_columns(s))
-                if not cols:
-                    return redirect(url_for("exams.list_exams"))
-                now = datetime.now(timezone.utc).isoformat(timespec="seconds")
-                data = {}
-                if "title" in cols:
-                    data["title"] = title
-                if "description" in cols:
-                    data["description"] = description
-                if "language" in cols:
-                    data["language"] = language or "es-ES"
-                if "created_at" in cols:
-                    data["created_at"] = now
-                if "updated_at" in cols:
-                    data["updated_at"] = now
-                if data:
-                    keys = list(data.keys())
-                    placeholders = [f":{k}" for k in keys]
-                    s.execute(
-                        text(
-                            f"INSERT INTO exam ({', '.join(keys)}) VALUES ({', '.join(placeholders)})"
-                        ),
-                        data,
-                    )
+                if cols:
+                    now = datetime.now(timezone.utc).isoformat(timespec="seconds")
+                    data = {}
+                    if "title" in cols: data["title"] = title
+                    if "description" in cols: data["description"] = description
+                    if "language" in cols: data["language"] = language or "es-ES"
+                    if "created_at" in cols: data["created_at"] = now
+                    if "updated_at" in cols: data["updated_at"] = now
+                    keys = list(data.keys()); placeholders = [f":{k}" for k in keys]
+                    s.execute(text(f"INSERT INTO exam ({', '.join(keys)}) VALUES ({', '.join(placeholders)})"), data)
                     s.commit()
                 exam_id = s.execute(text("SELECT last_insert_rowid()")).scalar()
         else:
-            # Fallback ya visto
             cols = set(_exam_columns(s))
-            if not cols:
-                return redirect(url_for("exams.list_exams"))
-            now = datetime.now(timezone.utc).isoformat(timespec="seconds")
-            data = {}
-            if "title" in cols:
-                data["title"] = title
-            if "description" in cols:
-                data["description"] = description
-            if "language" in cols:
-                data["language"] = language or "es-ES"
-            if "created_at" in cols:
-                data["created_at"] = now
-            if "updated_at" in cols:
-                data["updated_at"] = now
-            if data:
-                keys = list(data.keys())
-                placeholders = [f":{k}" for k in keys]
-                s.execute(
-                    text(
-                        f"INSERT INTO exam ({', '.join(keys)}) VALUES ({', '.join(placeholders)})"
-                    ),
-                    data,
-                )
+            if cols:
+                now = datetime.now(timezone.utc).isoformat(timespec="seconds")
+                data = {}
+                if "title" in cols: data["title"] = title
+                if "description" in cols: data["description"] = description
+                if "language" in cols: data["language"] = language or "es-ES"
+                if "created_at" in cols: data["created_at"] = now
+                if "updated_at" in cols: data["updated_at"] = now
+                keys = list(data.keys()); placeholders = [f":{k}" for k in keys]
+                s.execute(text(f"INSERT INTO exam ({', '.join(keys)}) VALUES ({', '.join(placeholders)})"), data)
                 s.commit()
             exam_id = s.execute(text("SELECT last_insert_rowid()")).scalar()
 
     if isinstance(exam_id, int):
+        # Historian
+        history.record_event(
+            exam_id=exam_id, entity="exam", action="create", entity_id=exam_id,
+            summary=title or f"Exam {exam_id}", before=None,
+            after={"title": title, "description": description, "language": language or "es-ES"},
+            extra=None
+        )
         return redirect(url_for("exams.exam_detail", exam_id=exam_id))
     return redirect(url_for("exams.list_exams"))
-
 
 @exams_bp.get("/exams/<int:exam_id>")
 def exam_detail(exam_id: int):
@@ -215,8 +176,7 @@ def exam_detail(exam_id: int):
             try:
                 svc = domain_services.get_exam_service(s)
                 e = svc.get_exam(exam_id)  # type: ignore[attr-defined]
-                if e:
-                    exam = _to_exam_dict(e)
+                if e: exam = _to_exam_dict(e)
             except Exception:
                 exam = _get_exam_fallback(s, exam_id)
         else:
@@ -228,21 +188,17 @@ def exam_detail(exam_id: int):
         if _domain_available("SectionService"):
             try:
                 ssvc = domain_services.get_section_service(s)
-                sections = [
-                    dict(
-                        id=getattr(x, "id", None),
-                        exam_id=getattr(x, "exam_id", None),
-                        title=getattr(x, "title", None),
-                        order=getattr(x, "order", None),
-                    )
-                    for x in ssvc.list_sections(exam_id)  # type: ignore[attr-defined]
-                ]
+                sections = [dict(id=getattr(x, "id", None),
+                                 exam_id=getattr(x, "exam_id", None),
+                                 title=getattr(x, "title", None),
+                                 order=getattr(x, "order", None))
+                            for x in ssvc.list_sections(exam_id)]  # type: ignore[attr-defined]
             except Exception:
                 sections = _list_sections_fallback(s, exam_id)
         else:
             sections = _list_sections_fallback(s, exam_id)
 
-        # Questions por sección (solo para render)
+        # Questions por sección
         enriched_sections: List[Dict[str, Any]] = []
         for sec in sections:
             sid = sec.get("id")
@@ -252,19 +208,16 @@ def exam_detail(exam_id: int):
                 try:
                     qsvc = domain_services.get_question_service(s)
                     qlist = qsvc.list_questions(sid)  # type: ignore[attr-defined]
-                    questions = [
-                        dict(
-                            id=getattr(q, "id", None),
-                            section_id=getattr(q, "section_id", None),
-                            stem=getattr(q, "stem", getattr(q, "text", None)),
-                            type=getattr(q, "type", None),
-                            choices=getattr(q, "choices", None),
-                            answer=getattr(q, "answer", None),
-                            difficulty=getattr(q, "difficulty", None),
-                            tags=getattr(q, "tags", None),
-                        )
-                        for q in qlist
-                    ]
+                    questions = [dict(
+                        id=getattr(q, "id", None),
+                        section_id=getattr(q, "section_id", None),
+                        stem=getattr(q, "stem", getattr(q, "text", None)),
+                        type=getattr(q, "type", None),
+                        choices=getattr(q, "choices", None),
+                        answer=getattr(q, "answer", None),
+                        difficulty=getattr(q, "difficulty", None),
+                        tags=getattr(q, "tags", None),
+                    ) for q in qlist]
                 except Exception:
                     questions = _list_questions_fallback(s, sid)
             else:
@@ -272,4 +225,6 @@ def exam_detail(exam_id: int):
             sec = {**sec, "questions": questions}
             enriched_sections.append(sec)
 
-    return render_template("exam_detail.html", exam=exam, sections=enriched_sections)
+    # Historian: últimos 25 eventos
+    events = history.list_events_for_exam(exam_id, limit=25)
+    return render_template("exam_detail.html", exam=exam, sections=enriched_sections, events=events)
