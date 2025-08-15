@@ -1,0 +1,67 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>{% block title %}ExamGen · Web Local{% endblock %}</title>
+  <!-- Vendor CSS (local, sin dependencia de red) -->
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/pico.min.css') }}">
+  <style>
+    /* Fallback mínimo por si pico.min.css es un placeholder; se mantendrá
+       hasta que en EXG-6.7 incluyamos la hoja completa vendor. */
+    :root {
+      --maxw: 1040px;
+    }
+    body {
+      font-family: system-ui, -apple-system, Segoe UI, Roboto, Ubuntu, Cantarell, 'Helvetica Neue', Arial, 'Noto Sans', 'Apple Color Emoji', 'Segoe UI Emoji', 'Segoe UI Symbol';
+      margin: 0;
+      background: #f8fafc;
+      color: #0f172a;
+    }
+    header, main, footer {
+      margin-inline: auto;
+      max-width: var(--maxw);
+      padding: 1.25rem;
+    }
+    header {
+      display: flex; align-items: center; justify-content: space-between;
+    }
+    .brand { font-weight: 700; letter-spacing: .2px; }
+    nav a {
+      text-decoration: none; margin-left: 1rem; opacity: .9;
+    }
+    nav a:hover { opacity: 1; text-decoration: underline; }
+    .card {
+      background: #fff; border: 1px solid #e5e7eb; border-radius: 12px;
+      padding: 1.25rem; box-shadow: 0 1px 2px rgba(16,24,40,.04);
+    }
+    .actions { display: flex; gap: .75rem; flex-wrap: wrap; }
+    .btn {
+      display: inline-block; padding: .6rem 1rem; border-radius: 10px; border: 1px solid #1f2937;
+      background: #111827; color: #fff; text-decoration: none;
+    }
+    .btn.secondary { background: #fff; color: #111827; }
+    footer { color: #475569; font-size: .95rem; }
+    .badge { font-size: .75rem; padding: .2rem .5rem; border-radius: .5rem; border: 1px solid #cbd5e1; }
+  </style>
+  {% block head %}{% endblock %}
+</head>
+<body>
+  <header>
+    <div class="brand">ExamGen</div>
+    <nav>
+      <a href="/">Inicio</a>
+      <!-- En EXG‑6.3 activaremos estos enlaces -->
+      <a href="/exams">Exámenes</a>
+    </nav>
+  </header>
+
+  <main>
+    {% block content %}{% endblock %}
+  </main>
+
+  <footer>
+    <span class="badge">Modo local</span>
+  </footer>
+</body>
+</html>
