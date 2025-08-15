@@ -1,0 +1,13 @@
+{% extends "base.html" %}
+{% block title %}ExamGen · Dashboard{% endblock %}
+{% block content %}
+  <section class="card">
+    <h1 style="margin-top:0">Bienvenido a ExamGen (Web Local)</h1>
+    <p>Gestiona bancos de preguntas y genera exámenes personalizados, 100% en tu equipo.</p>
+    <div class="actions">
+      <a class="btn" href="/exams/new" title="Crear un nuevo examen">+ Crear examen</a>
+      <a class="btn secondary" href="/exams" title="Ver exámenes">Ver exámenes</a>
+    </div>
+    <p style="margin-top:1rem;color:#475569">Nota: Estas rutas se habilitarán en <strong>EXG‑6.3</strong>.</p>
+  </section>
+{% endblock %}
