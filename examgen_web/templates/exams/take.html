@@ -1,0 +1,29 @@
+{% extends "base.html" %}
+{% block title %}Resolver examen{% endblock %}
+{% block content %}
+<section class="container">
+  <header class="page-header">
+    <h1>Examen {{ attempt.exam_id }}</h1>
+    <div class="timer" aria-live="polite">Tiempo: {{ attempt.time_limit or 0 }} min</div>
+  </header>
+  <p class="progress">{{ progress }}</p>
+  <form method="post" class="question-form">
+    <input type="hidden" name="idx" value="{{ idx }}" />
+    <fieldset>
+      <legend>{{ question.prompt }}</legend>
+      {% for opt in question.options %}
+        <div class="option">
+          <label>
+            <input type="radio" name="answer" value="{{ opt.letter }}" required />
+            <span>{{ opt.letter }}. {{ opt.text }}</span>
+          </label>
+        </div>
+      {% endfor %}
+    </fieldset>
+    <div class="actions">
+      <button class="btn" type="submit" name="action" value="next">Siguiente</button>
+      <button class="btn" type="submit" name="action" value="finish">Finalizar</button>
+    </div>
+  </form>
+</section>
+{% endblock %}
