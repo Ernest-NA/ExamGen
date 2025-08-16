@@ -1,0 +1,38 @@
+{% extends "base.html" %}
+{% block title %}Resultado intento{% endblock %}
+{% block content %}
+<section class="container">
+  <header class="page-header">
+    <h1>Resultado del intento</h1>
+    <div class="actions">
+      <a class="btn" href="{{ url_for('player.export_attempt_csv', attempt_id=attempt.id) }}">CSV</a>
+      <a class="btn" href="{{ url_for('player.export_attempt_json', attempt_id=attempt.id) }}">JSON</a>
+    </div>
+  </header>
+  <p>Calificación: {{ attempt.score or 0 }} / {{ attempt.questions|length }}</p>
+  <table class="table">
+    <thead>
+      <tr>
+        <th>Pregunta</th>
+        <th>Respuesta</th>
+        <th>Correcta</th>
+        <th>Estado</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for q in attempt.questions %}
+      <tr>
+        <td>{{ q.prompt }}</td>
+        <td>{{ attempt.answers.get(q.id, '') }}</td>
+        <td>{% for o in q.options if o.is_correct %}{{ o.letter }}{% endfor %}</td>
+        <td>{{ '✔' if q.get('is_correct') else '✘' }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  <p>
+    <a href="/attempts">Volver al historial</a> |
+    <a href="/exams">Lista de exámenes</a>
+  </p>
+</section>
+{% endblock %}
