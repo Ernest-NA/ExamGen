@@ -1,0 +1,17 @@
+{% extends "base.html" %}
+{% block title %}Confirmar · ExamGen{% endblock %}
+{% block content %}
+<section class="container">
+  <div class="card">
+    <p>{{ message }}</p>
+    <form
+      action="{{ action }}"
+      method="{{ method|default('post') }}"
+      style="display:inline-block"
+    >
+      <button type="submit" class="btn">Aceptar</button>
+    </form>
+    <a href="{{ url_for('settings.index') }}" class="btn">Cancelar</a>
+  </div>
+</section>
+{% endblock %}
