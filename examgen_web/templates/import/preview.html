@@ -1,0 +1,44 @@
+{% extends "base.html" %}
+{% block content %}
+<h1>Previsualizar importación</h1>
+<form action="{{ url_for('importer.confirm_import') }}" method="post">
+<div class="table-wrap">
+<table>
+  <thead>
+    <tr>
+      <th></th>
+      {% for h in headers %}
+        <th>
+          <select name="map-{{ h }}" class="col-map" data-target="col-{{ loop.index0 }}">
+            <option value=""></option>
+            {% for field in fields %}
+              <option value="{{ field }}" {% if h|lower == field %}selected{% endif %}>{{ field }}</option>
+            {% endfor %}
+          </select>
+        </th>
+      {% endfor %}
+    </tr>
+    <tr>
+      <th>Importar</th>
+      {% for h in headers %}
+        <th id="col-{{ loop.index0 }}" data-original="{{ h }}">{{ h }}</th>
+      {% endfor %}
+    </tr>
+  </thead>
+  <tbody>
+    {% for row in rows %}
+    <tr>
+      <td><input type="checkbox" name="row" value="{{ loop.index0 }}" checked></td>
+      {% for h in headers %}
+        <td>{{ row.get(h, '') }}</td>
+      {% endfor %}
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+</div>
+<button class="btn" type="submit">Confirmar importación</button>
+<a class="btn" href="{{ url_for('importer.upload_form') }}">Cancelar</a>
+</form>
+<script src="{{ url_for('static', filename='import.js') }}"></script>
+{% endblock %}

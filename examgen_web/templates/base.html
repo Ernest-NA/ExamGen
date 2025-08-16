@@ -12,7 +12,7 @@
       <li><a href="/">Inicio</a></li>
       <li><a href="/exams">Exámenes</a></li>
       <li><a href="/attempts">Historial</a></li>
-      <li><a href="/import">Importar</a></li>
+      <li class="{% if request.path.startswith('/import') %}active{% endif %}"><a href="/import">Importar</a></li>
       <li><a href="/settings">Ajustes</a></li>
     </ul>
   </nav>
