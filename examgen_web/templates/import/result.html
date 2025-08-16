@@ -1,0 +1,14 @@
+{% extends "base.html" %}
+{% block content %}
+<h1>Importación completada</h1>
+<p>Archivo: {{ summary.file_name }}</p>
+<ul>
+  <li>Filas procesadas: {{ summary.rows_total }}</li>
+  <li>Insertadas: {{ summary.imported }}</li>
+  <li>Duplicadas: {{ summary.duplicates }}</li>
+  <li>Omitidas: {{ summary.skipped }}</li>
+</ul>
+<p><a class="btn" href="{{ url_for('importer.report_json') }}">Reporte JSON</a>
+<a class="btn" href="{{ url_for('importer.report_csv') }}">Reporte CSV</a></p>
+<a class="btn" href="/">Volver</a>
+{% endblock %}
