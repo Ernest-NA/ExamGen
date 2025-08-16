@@ -17,15 +17,15 @@
     </div>
   {% else %}
     <div class="table-wrap">
-      <table class="table">
-        <thead><tr><th>{{ _('ID') }}</th><th>{{ _('Título') }}</th><th>{{ _('Resolver') }}</th><th>{{ _('Historial') }}</th></tr></thead>
+      <table class="table" aria-label="{{ _('Listado de exámenes') }}">
+        <thead><tr><th scope="col">{{ _('ID') }}</th><th scope="col">{{ _('Título') }}</th><th scope="col">{{ _('Resolver') }}</th><th scope="col">{{ _('Historial') }}</th></tr></thead>
         <tbody>
           {% for e in items %}
             <tr>
               <td>{{ e.id }}</td>
               <td>{{ e.title or "—" }}</td>
-              <td><a class="btn" href="/exams/{{ e.id }}/take">{{ _('Resolver') }}</a></td>
-              <td><a class="btn" href="{{ url_for('attempts.attempts_index', exam_id=e.id) }}">{{ _('Historial') }}</a></td>
+              <td><a class="btn btn-primary" href="/exams/{{ e.id }}/take">{{ _('Resolver') }}</a></td>
+              <td><a class="btn btn-secondary" href="{{ url_for('attempts.attempts_index', exam_id=e.id) }}">{{ _('Historial') }}</a></td>
             </tr>
           {% endfor %}
         </tbody>
