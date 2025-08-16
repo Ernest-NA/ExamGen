@@ -1,0 +1,25 @@
+{% extends "base.html" %}
+{% block title %}{{ _('Inicio') }} · {{ _('ExamGen') }}{% endblock %}
+{% block content %}
+<section class="container">
+  <h1>{{ _('Genera exámenes al instante') }}</h1>
+  <p>{{ _('Crea, ejecuta e importa cuestionarios en un solo lugar.') }}</p>
+  <a href="/start" class="btn btn-primary">{{ _('Crear examen / Empezar ahora') }}</a>
+  <div class="home-grid">
+    <a class="card" href="/exams">
+      <h2>{{ _('Exámenes') }}</h2>
+      <p class="hint">{{ counts.exams if counts.exams is not none else '—' }}</p>
+    </a>
+    <a class="card" href="/attempts">
+      <h2>{{ _('Historial') }}</h2>
+      <p class="hint">{{ counts.attempts if counts.attempts is not none else '—' }}</p>
+    </a>
+    <a class="card" href="/import">
+      <h2>{{ _('Importar') }}</h2>
+    </a>
+    <a class="card" href="/settings">
+      <h2>{{ _('Ajustes') }}</h2>
+    </a>
+  </div>
+</section>
+{% endblock %}
