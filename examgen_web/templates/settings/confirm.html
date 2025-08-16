@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% block title %}Confirmar · ExamGen{% endblock %}
+{% block title %}{{ _('Confirmar') }} · {{ _('ExamGen') }}{% endblock %}
 {% block content %}
 <section class="container">
   <div class="card">
@@ -9,9 +9,9 @@
       method="{{ method|default('post') }}"
       style="display:inline-block"
     >
-      <button type="submit" class="btn">Aceptar</button>
+      <button type="submit" class="btn">{{ _('Aceptar') }}</button>
     </form>
-    <a href="{{ url_for('settings.index') }}" class="btn">Cancelar</a>
+    <a href="{{ url_for('settings.index') }}" class="btn">{{ _('Cancelar') }}</a>
   </div>
 </section>
 {% endblock %}

@@ -38,3 +38,8 @@ def log_question_cloned(
         user=user,
         changes=changes or {},
     )
+
+
+def log_language_set(lang: str) -> None:
+    """Registrar cambio de idioma en ``logs/web_events.jsonl``."""
+    append_event("i18n.language_set", lang=lang)

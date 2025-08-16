@@ -1,10 +1,10 @@
 {% extends "base.html" %}
-{% block title %}Resolver examen{% endblock %}
+{% block title %}{{ _('Resolver examen') }}{% endblock %}
 {% block content %}
 <section class="container">
   <header class="page-header">
-    <h1>Examen {{ attempt.exam_id }}</h1>
-    <div class="timer" aria-live="polite">Tiempo: {{ attempt.time_limit or 0 }} min</div>
+    <h1>{{ _('Examen') }} {{ attempt.exam_id }}</h1>
+    <div class="timer" aria-live="polite">{{ _('Tiempo') }}: {{ attempt.time_limit or 0 }} {{ _('min') }}</div>
   </header>
   <p class="progress">{{ progress }}</p>
   <form method="post" class="question-form">
@@ -21,8 +21,8 @@
       {% endfor %}
     </fieldset>
     <div class="actions">
-      <button class="btn" type="submit" name="action" value="next">Siguiente</button>
-      <button class="btn" type="submit" name="action" value="finish">Finalizar</button>
+      <button class="btn" type="submit" name="action" value="next">{{ _('Siguiente') }}</button>
+      <button class="btn" type="submit" name="action" value="finish">{{ _('Finalizar') }}</button>
     </div>
   </form>
 </section>

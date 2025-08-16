@@ -1,22 +1,22 @@
 {% extends "base.html" %}
-{% block title %}Resultado intento{% endblock %}
+{% block title %}{{ _('Resultado del intento') }}{% endblock %}
 {% block content %}
 <section class="container">
   <header class="page-header">
-    <h1>Resultado del intento</h1>
+    <h1>{{ _('Resultado del intento') }}</h1>
     <div class="actions">
-      <a class="btn" href="{{ url_for('player.export_attempt_csv', attempt_id=attempt.id) }}">CSV</a>
-      <a class="btn" href="{{ url_for('player.export_attempt_json', attempt_id=attempt.id) }}">JSON</a>
+      <a class="btn" href="{{ url_for('player.export_attempt_csv', attempt_id=attempt.id) }}">{{ _('CSV') }}</a>
+      <a class="btn" href="{{ url_for('player.export_attempt_json', attempt_id=attempt.id) }}">{{ _('JSON') }}</a>
     </div>
   </header>
-  <p>Calificación: {{ attempt.score or 0 }} / {{ attempt.questions|length }}</p>
+  <p>{{ _('Calificación') }}: {{ attempt.score or 0 }} / {{ attempt.questions|length }}</p>
   <table class="table">
     <thead>
       <tr>
-        <th>Pregunta</th>
-        <th>Respuesta</th>
-        <th>Correcta</th>
-        <th>Estado</th>
+        <th>{{ _('Pregunta') }}</th>
+        <th>{{ _('Respuesta') }}</th>
+        <th>{{ _('Correcta') }}</th>
+        <th>{{ _('Estado') }}</th>
       </tr>
     </thead>
     <tbody>
@@ -31,8 +31,8 @@
     </tbody>
   </table>
   <p>
-    <a href="/attempts">Volver al historial</a> |
-    <a href="/exams">Lista de exámenes</a>
+    <a href="/attempts">{{ _('Volver al historial') }}</a> |
+    <a href="/exams">{{ _('Lista de exámenes') }}</a>
   </p>
 </section>
 {% endblock %}

@@ -1,9 +1,14 @@
-from flask import Flask
+from flask import Flask, g, redirect, request
 from .blueprints.exams import bp as exams_bp
 from .blueprints.attempts import bp as attempts_bp
 from .blueprints.player import bp as player_bp
 from .blueprints.settings import bp as settings_bp
 from .blueprints.clone import bp as questions_bp
+from .utils.i18n import (
+    get_locale,
+    set_language as set_language_pref,
+    translate,
+)
 
 try:  # Importer blueprint may depend on optional packages
     from .blueprints.importer import bp as importer_bp
@@ -24,4 +29,20 @@ def create_app() -> Flask:
     if importer_bp is not None:
         app.register_blueprint(importer_bp, url_prefix="/import")
     app.register_blueprint(settings_bp, url_prefix="/settings")
+    app.jinja_env.globals.update(
+        _=lambda s: translate(s, getattr(g, "lang", "es"))
+    )
+
+    @app.before_request
+    def _determine_lang() -> None:  # pragma: no cover - simple setter
+        g.lang = get_locale(request)
+
+    @app.post("/set-language")
+    def set_language():  # pragma: no cover - simple redirect
+        lang = request.form.get("lang", "es")
+        set_language_pref(lang)
+        resp = redirect(request.referrer or "/")
+        resp.set_cookie("lang", lang, max_age=31536000)
+        return resp
+
     return app

@@ -1,19 +1,20 @@
 <!doctype html>
-<html lang="es">
+<html lang="{{ g.lang }}">
   <head>
     <meta charset="utf-8" />
-    <title>{% block title %}ExamGen{% endblock %}</title>
+    <title>{% block title %}{{ _('ExamGen') }}{% endblock %}</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='app.css') }}" />
   </head>
   <body>
   <nav class="topbar" role="navigation">
-    <div class="brand"><a href="/">ExamGen</a></div>
+    <div class="brand"><a href="/">{{ _('ExamGen') }}</a></div>
     <ul class="menu">
-      <li><a href="/">Inicio</a></li>
-      <li><a href="/exams">Exámenes</a></li>
-      <li><a href="/attempts">Historial</a></li>
-      <li class="{% if request.path.startswith('/import') %}active{% endif %}"><a href="/import">Importar</a></li>
-      <li class="{% if request.path.startswith('/settings') %}active{% endif %}"><a href="/settings">Ajustes</a></li>
+      <li><a href="/">{{ _('Inicio') }}</a></li>
+      <li><a href="/exams">{{ _('Exámenes') }}</a></li>
+      <li><a href="/attempts">{{ _('Historial') }}</a></li>
+      <li class="{% if request.path.startswith('/import') %}active{% endif %}"><a href="/import">{{ _('Importar') }}</a></li>
+      <li class="{% if request.path.startswith('/settings') %}active{% endif %}"><a href="/settings">{{ _('Ajustes') }}</a></li>
+      <li>{% include 'partials/language_selector.html' %}</li>
     </ul>
   </nav>
   {% block content %}{% endblock %}

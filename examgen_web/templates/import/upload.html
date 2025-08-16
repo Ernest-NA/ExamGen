@@ -1,8 +1,8 @@
 {% extends "base.html" %}
 {% block content %}
-<h1>Importar preguntas</h1>
+<h1>{{ _('Importar preguntas') }}</h1>
 {% if empty_db %}
-<p class="warning">La base de datos está vacía. Considera hacer un backup.</p>
+<p class="warning">{{ _('La base de datos está vacía. Considera hacer un backup.') }}</p>
 {% endif %}
 {% if error %}
 <p class="error">{{ error }}</p>
@@ -12,14 +12,14 @@
     <input type="file" name="file" required />
   </p>
   <p>
-    <label>Tipo de archivo
+    <label>{{ _('Tipo de archivo') }}
       <select name="kind">
-        <option value="auto">Auto</option>
-        <option value="csv">CSV</option>
-        <option value="json">JSON</option>
+        <option value="auto">{{ _('Auto') }}</option>
+        <option value="csv">{{ _('CSV') }}</option>
+        <option value="json">{{ _('JSON') }}</option>
       </select>
     </label>
   </p>
-  <button class="btn" type="submit">Cargar</button>
+  <button class="btn" type="submit">{{ _('Cargar') }}</button>
 </form>
 {% endblock %}

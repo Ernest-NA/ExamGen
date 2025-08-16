@@ -1,0 +1,6 @@
+<form action="{{ url_for('set_language') }}" method="post" class="lang-selector">
+  <select name="lang" onchange="this.form.submit()">
+    <option value="es" {% if g.lang == 'es' %}selected{% endif %}>ES</option>
+    <option value="en" {% if g.lang == 'en' %}selected{% endif %}>EN</option>
+  </select>
+</form>

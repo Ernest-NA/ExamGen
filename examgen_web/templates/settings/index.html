@@ -1,14 +1,14 @@
 {% extends "base.html" %}
-{% block title %}Ajustes · ExamGen{% endblock %}
+{% block title %}{{ _('Ajustes') }} · {{ _('ExamGen') }}{% endblock %}
 {% block content %}
 <section class="container">
   <div class="card">
-    <h2>Estado de la BD</h2>
+    <h2>{{ _('Estado de la BD') }}</h2>
     <div class="table-wrap">
       <table class="table">
         <tbody>
-          <tr><th>Ruta</th><td>{{ db_info.path }}</td></tr>
-          <tr><th>Tamaño</th><td>{{ db_info.size }} bytes</td></tr>
+          <tr><th>{{ _('Ruta') }}</th><td>{{ db_info.path }}</td></tr>
+          <tr><th>{{ _('Tamaño') }}</th><td>{{ db_info.size }} bytes</td></tr>
           {% for t in db_info.tables %}
           <tr><th>{{ t.name }}</th><td>{{ t.rows }}</td></tr>
           {% endfor %}
@@ -18,11 +18,11 @@
   </div>
 
   <div class="card">
-    <h2>Historial de eventos</h2>
+    <h2>{{ _('Historial de eventos') }}</h2>
     {% if events %}
     <div class="table-wrap">
       <table class="table">
-        <thead><tr><th>Fecha</th><th>Evento</th><th>Detalles</th></tr></thead>
+        <thead><tr><th>{{ _('Fecha') }}</th><th>{{ _('Evento') }}</th><th>{{ _('Detalles') }}</th></tr></thead>
         <tbody>
         {% for e in events %}
           <tr>
@@ -35,23 +35,23 @@
       </table>
     </div>
     {% else %}
-      <p class="hint">Sin eventos</p>
+      <p class="hint">{{ _('Sin eventos') }}</p>
     {% endif %}
     <form action="{{ url_for('settings.confirm') }}" method="post">
       <input type="hidden" name="action" value="{{ url_for('settings.clear_history_route') }}">
-      <input type="hidden" name="message" value="¿Limpiar historial de eventos?">
-      <button class="btn" type="submit">Limpiar historial</button>
+      <input type="hidden" name="message" value="{{ _('¿Limpiar historial de eventos?') }}">
+      <button class="btn" type="submit">{{ _('Limpiar historial') }}</button>
     </form>
   </div>
 
   <div class="card">
-    <h2>Dependencias y entorno</h2>
+    <h2>{{ _('Dependencias y entorno') }}</h2>
     <div class="table-wrap">
       <table class="table">
         <tbody>
-          <tr><th>Python</th><td>{{ env_info.python }}</td></tr>
-          <tr><th>ExamGen</th><td>{{ env_info.examgen }}</td></tr>
-          <tr><th>OS</th><td>{{ env_info.os }}</td></tr>
+          <tr><th>{{ _('Python') }}</th><td>{{ env_info.python }}</td></tr>
+          <tr><th>{{ _('ExamGen') }}</th><td>{{ env_info.examgen }}</td></tr>
+          <tr><th>{{ _('OS') }}</th><td>{{ env_info.os }}</td></tr>
           {% for p in packages %}
           <tr><th>{{ p.name }}</th><td>{{ p.version }}</td></tr>
           {% endfor %}
@@ -61,24 +61,24 @@
   </div>
 
   <div class="card">
-    <h2>Copias de seguridad</h2>
+    <h2>{{ _('Copias de seguridad') }}</h2>
     <form action="{{ url_for('settings.backup') }}" method="post">
-      <button class="btn" type="submit">Crear backup</button>
+      <button class="btn" type="submit">{{ _('Crear backup') }}</button>
     </form>
     <ul>
       {% for b in backups %}
       <li><a href="{{ url_for('settings.download_backup', filename=b) }}">{{ b }}</a></li>
       {% else %}
-      <li class="hint">No hay backups</li>
+      <li class="hint">{{ _('No hay backups') }}</li>
       {% endfor %}
     </ul>
   </div>
 
   <div class="card">
-    <h2>Restaurar desde backup</h2>
+    <h2>{{ _('Restaurar desde backup') }}</h2>
     <form action="{{ url_for('settings.restore') }}" method="post" enctype="multipart/form-data" class="upload-form">
       <input type="file" name="db_file" required />
-      <button class="btn" type="submit">Restaurar</button>
+      <button class="btn" type="submit">{{ _('Restaurar') }}</button>
     </form>
   </div>
 </section>
