@@ -6,7 +6,8 @@
     <link rel="stylesheet" href="{{ url_for('static', filename='app.css') }}" />
   </head>
   <body>
-  <nav class="topbar" role="navigation">
+  <a href="#main-content" class="skip-link">{{ _('Saltar al contenido principal') }}</a>
+  <nav class="topbar" role="navigation" aria-label="{{ _('Main navigation') }}">
     <div class="brand"><a href="/">{{ _('ExamGen') }}</a></div>
     <ul class="menu">
       <li><a href="/">{{ _('Inicio') }}</a></li>
@@ -17,6 +18,9 @@
       <li>{% include 'partials/language_selector.html' %}</li>
     </ul>
   </nav>
-  {% block content %}{% endblock %}
+  <main id="main-content" tabindex="-1">
+    <div id="status" class="sr-only" aria-live="polite"></div>
+    {% block content %}{% endblock %}
+  </main>
   </body>
 </html>
