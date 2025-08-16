@@ -22,3 +22,19 @@ def append_event(event: str, **data: Any) -> None:
     with log_path.open("a", encoding="utf-8") as fh:
         json.dump(payload, fh, ensure_ascii=False)
         fh.write("\n")
+
+
+def log_question_cloned(
+    original_id: int,
+    new_id: int,
+    user: str | None = None,
+    changes: dict | None = None,
+) -> None:
+    """Convenience wrapper for ``questions.cloned`` event."""
+    append_event(
+        "questions.cloned",
+        original_id=original_id,
+        new_id=new_id,
+        user=user,
+        changes=changes or {},
+    )
