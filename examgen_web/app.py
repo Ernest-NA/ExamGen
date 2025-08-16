@@ -2,7 +2,12 @@ from flask import Flask
 from .blueprints.exams import bp as exams_bp
 from .blueprints.attempts import bp as attempts_bp
 from .blueprints.player import bp as player_bp
-from .blueprints.importer import bp as importer_bp
+from .blueprints.settings import bp as settings_bp
+
+try:  # Importer blueprint may depend on optional packages
+    from .blueprints.importer import bp as importer_bp
+except Exception:  # pragma: no cover - optional
+    importer_bp = None
 
 
 def create_app() -> Flask:
@@ -14,5 +19,7 @@ def create_app() -> Flask:
     app.register_blueprint(exams_bp, url_prefix="/exams")
     app.register_blueprint(attempts_bp, url_prefix="/attempts")
     app.register_blueprint(player_bp)
-    app.register_blueprint(importer_bp, url_prefix="/import")
+    if importer_bp is not None:
+        app.register_blueprint(importer_bp, url_prefix="/import")
+    app.register_blueprint(settings_bp, url_prefix="/settings")
     return app
