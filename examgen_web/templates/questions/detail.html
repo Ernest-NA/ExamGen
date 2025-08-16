@@ -1,18 +1,18 @@
 {% extends "base.html" %}
-{% block title %}Pregunta {{ question.id }}{% endblock %}
+{% block title %}{{ _('Pregunta') }} {{ question.id }}{% endblock %}
 {% block content %}
-<h1>Pregunta #{{ question.id }}</h1>
+<h1>{{ _('Pregunta') }} #{{ question.id }}</h1>
 <p>{{ question.prompt }}</p>
 
 {% if question.meta.get('cloned_from') %}
-  <p>Origen: <a href="{{ url_for('questions.question_detail', qid=question.meta['cloned_from']) }}">Pregunta {{ question.meta['cloned_from'] }}</a></p>
+  <p>{{ _('Origen') }}: <a href="{{ url_for('questions.question_detail', qid=question.meta['cloned_from']) }}">{{ _('Pregunta') }} {{ question.meta['cloned_from'] }}</a></p>
 {% endif %}
 
 {% if derived %}
-  <h2>Copias derivadas</h2>
+  <h2>{{ _('Copias derivadas') }}</h2>
   <ul>
   {% for q in derived %}
-    <li><a href="{{ url_for('questions.question_detail', qid=q.id) }}">Pregunta {{ q.id }}</a></li>
+    <li><a href="{{ url_for('questions.question_detail', qid=q.id) }}">{{ _('Pregunta') }} {{ q.id }}</a></li>
   {% endfor %}
   </ul>
 {% endif %}

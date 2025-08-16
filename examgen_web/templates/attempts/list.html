@@ -1,37 +1,37 @@
 {% extends "base.html" %}
-{% block title %}Historial de exámenes · ExamGen{% endblock %}
+{% block title %}{{ _('Historial de exámenes') }} · {{ _('ExamGen') }}{% endblock %}
 {% block content %}
 <section class="container">
   <header class="page-header">
-    <h1>Historial de exámenes</h1>
+    <h1>{{ _('Historial de exámenes') }}</h1>
     <div class="actions">
-      <a class="btn" href="{{ url_for('attempts.export_csv', exam_id=exam_id) }}">CSV</a>
-      <a class="btn" href="{{ url_for('attempts.export_json', exam_id=exam_id) }}">JSON</a>
+      <a class="btn" href="{{ url_for('attempts.export_csv', exam_id=exam_id) }}">{{ _('CSV') }}</a>
+      <a class="btn" href="{{ url_for('attempts.export_json', exam_id=exam_id) }}">{{ _('JSON') }}</a>
     </div>
   </header>
 
   {% if exam_id %}
-    <p class="hint">Filtrado por examen #{{ exam_id }}.
-      <a href="{{ url_for('attempts.attempts_index') }}">Quitar filtro</a>
+    <p class="hint">{{ _('Filtrado por examen #') }}{{ exam_id }}.
+      <a href="{{ url_for('attempts.attempts_index') }}">{{ _('Quitar filtro') }}</a>
     </p>
   {% endif %}
 
   {% if not items %}
     <div class="empty">
-      <p>No se encontraron intentos.</p>
-      <p class="hint">Puedes <a href="/import">importar</a> un banco para comenzar.</p>
+      <p>{{ _('No se encontraron intentos.') }}</p>
+      <p class="hint">{{ _('Puedes') }} <a href="/import">{{ _('Importar') }}</a> {{ _('un banco para comenzar.') }}</p>
     </div>
   {% else %}
     <div class="table-wrap">
       <table class="table" role="table">
         <thead>
           <tr>
-            <th scope="col">Intento</th>
-            <th scope="col">Examen</th>
-            <th scope="col">Inicio</th>
-            <th scope="col">Fin</th>
-            <th scope="col">Puntuación</th>
-            <th scope="col">Estado</th>
+            <th scope="col">{{ _('Intento') }}</th>
+            <th scope="col">{{ _('Examen') }}</th>
+            <th scope="col">{{ _('Inicio') }}</th>
+            <th scope="col">{{ _('Fin') }}</th>
+            <th scope="col">{{ _('Puntuación') }}</th>
+            <th scope="col">{{ _('Estado') }}</th>
           </tr>
         </thead>
         <tbody>

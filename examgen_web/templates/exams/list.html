@@ -1,31 +1,31 @@
 {% extends "base.html" %}
-{% block title %}Exámenes · ExamGen{% endblock %}
+{% block title %}{{ _('Exámenes') }} · {{ _('ExamGen') }}{% endblock %}
 {% block content %}
 <section class="container">
   <header class="page-header">
-    <h1>Exámenes</h1>
+    <h1>{{ _('Exámenes') }}</h1>
     <div class="actions">
-      <a class="btn" href="/exams/exams.csv">CSV</a>
-      <a class="btn" href="/exams/exams.json">JSON</a>
+      <a class="btn" href="/exams/exams.csv">{{ _('CSV') }}</a>
+      <a class="btn" href="/exams/exams.json">{{ _('JSON') }}</a>
     </div>
   </header>
 
   {% if not items %}
     <div class="empty">
-      <p>No se detectaron exámenes aún.</p>
-      <p class="hint">Puedes <a href="/import">importar</a> un banco o crear uno desde “Crear examen”.</p>
+      <p>{{ _('No se detectaron exámenes aún.') }}</p>
+      <p class="hint">{{ _('Puedes') }} <a href="/import">{{ _('Importar') }}</a> {{ _('un banco o crear uno desde "Crear examen".') }}</p>
     </div>
   {% else %}
     <div class="table-wrap">
       <table class="table">
-        <thead><tr><th>ID</th><th>Título</th><th>Resolver</th><th>Historial</th></tr></thead>
+        <thead><tr><th>{{ _('ID') }}</th><th>{{ _('Título') }}</th><th>{{ _('Resolver') }}</th><th>{{ _('Historial') }}</th></tr></thead>
         <tbody>
           {% for e in items %}
             <tr>
               <td>{{ e.id }}</td>
               <td>{{ e.title or "—" }}</td>
-              <td><a class="btn" href="/exams/{{ e.id }}/take">Resolver</a></td>
-              <td><a class="btn" href="{{ url_for('attempts.attempts_index', exam_id=e.id) }}">Historial</a></td>
+              <td><a class="btn" href="/exams/{{ e.id }}/take">{{ _('Resolver') }}</a></td>
+              <td><a class="btn" href="{{ url_for('attempts.attempts_index', exam_id=e.id) }}">{{ _('Historial') }}</a></td>
             </tr>
           {% endfor %}
         </tbody>

@@ -1,6 +1,6 @@
 {% extends "base.html" %}
 {% block content %}
-<h1>Previsualizar importación</h1>
+<h1>{{ _('Previsualizar importación') }}</h1>
 <form action="{{ url_for('importer.confirm_import') }}" method="post">
 <div class="table-wrap">
 <table>
@@ -19,7 +19,7 @@
       {% endfor %}
     </tr>
     <tr>
-      <th>Importar</th>
+      <th>{{ _('Importar') }}</th>
       {% for h in headers %}
         <th id="col-{{ loop.index0 }}" data-original="{{ h }}">{{ h }}</th>
       {% endfor %}
@@ -37,8 +37,8 @@
   </tbody>
 </table>
 </div>
-<button class="btn" type="submit">Confirmar importación</button>
-<a class="btn" href="{{ url_for('importer.upload_form') }}">Cancelar</a>
+<button class="btn" type="submit">{{ _('Confirmar importación') }}</button>
+<a class="btn" href="{{ url_for('importer.upload_form') }}">{{ _('Cancelar') }}</a>
 </form>
 <script src="{{ url_for('static', filename='import.js') }}"></script>
 {% endblock %}
