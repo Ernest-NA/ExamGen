@@ -1,0 +1,42 @@
+{% extends "base.html" %}
+{% block title %}Clonar pregunta{% endblock %}
+{% block content %}
+<h1>Clonar pregunta #{{ question.id }}</h1>
+<form method="post">
+  <label for="prompt">Enunciado</label><br />
+  <textarea id="prompt" name="prompt" rows="4" cols="80">{{ question.prompt }}</textarea><br />
+
+  <label for="explanation">Explicación</label><br />
+  <textarea id="explanation" name="explanation" rows="3" cols="80">{{ question.explanation or '' }}</textarea><br />
+
+  <label for="subject_id">Materia</label>
+  <select id="subject_id" name="subject_id">
+    {% for subj in subjects %}
+      <option value="{{ subj.id }}" {% if subj.id == question.subject_id %}selected{% endif %}>{{ subj.name }}</option>
+    {% endfor %}
+  </select><br />
+
+  <label for="difficulty">Dificultad</label>
+  <input id="difficulty" type="number" name="difficulty" value="{{ question.difficulty }}" /><br />
+
+  <label for="version">Versión</label>
+  <input id="version" type="text" name="version" value="{{ version }}" /><br />
+
+  <label for="meta">Meta</label><br />
+  <textarea id="meta" name="meta" rows="4" cols="80">{{ question.meta | tojson }}</textarea><br />
+
+  <h2>Opciones</h2>
+  {% for opt in question.options %}
+    <div class="option">
+      <input type="text" name="option_text_{{ loop.index0 }}" value="{{ opt.text }}" />
+      <label>
+        <input type="checkbox" name="option_correct_{{ loop.index0 }}" {% if opt.is_correct %}checked{% endif %} /> Correcta
+      </label>
+      <input type="text" name="option_answer_{{ loop.index0 }}" value="{{ opt.answer or '' }}" placeholder="Respuesta" />
+      <input type="text" name="option_explanation_{{ loop.index0 }}" value="{{ opt.explanation or '' }}" placeholder="Explicación" />
+    </div>
+  {% endfor %}
+  <input type="hidden" name="options_count" value="{{ question.options|length }}" />
+  <button type="submit">Guardar copia</button>
+</form>
+{% endblock %}

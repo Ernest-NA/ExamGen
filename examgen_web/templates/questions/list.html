@@ -1,0 +1,19 @@
+{% extends "base.html" %}
+{% block title %}Preguntas{% endblock %}
+{% block content %}
+<h1>Preguntas</h1>
+<table class="questions">
+  <tr><th>ID</th><th>Enunciado</th><th></th></tr>
+  {% for q in items %}
+    <tr>
+      <td><a href="{{ url_for('questions.question_detail', qid=q.id) }}">{{ q.id }}</a></td>
+      <td>
+        {{ q.prompt[:80] }}{% if q.meta.get('cloned_from') %}
+          <span class="copy-note">(copia de <a href="{{ url_for('questions.question_detail', qid=q.meta['cloned_from']) }}">#{{ q.meta['cloned_from'] }}</a>)</span>
+        {% endif %}
+      </td>
+      <td><a href="{{ url_for('questions.clone_form', qid=q.id) }}">Clonar</a></td>
+    </tr>
+  {% endfor %}
+</table>
+{% endblock %}
