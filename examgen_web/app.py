@@ -1,4 +1,5 @@
 from flask import Flask, g, redirect, request
+from .blueprints.main import bp as main_bp
 from .blueprints.exams import bp as exams_bp
 from .blueprints.attempts import bp as attempts_bp
 from .blueprints.player import bp as player_bp
@@ -22,6 +23,7 @@ def create_app() -> Flask:
     app.config["MAX_CONTENT_LENGTH"] = 10 * 1024 * 1024
     # Navegación sin barra final y registro de blueprints
     app.url_map.strict_slashes = False
+    app.register_blueprint(main_bp, url_prefix="")
     app.register_blueprint(exams_bp, url_prefix="/exams")
     app.register_blueprint(attempts_bp, url_prefix="/attempts")
     app.register_blueprint(player_bp)

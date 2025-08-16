@@ -13,6 +13,7 @@ a:hover{text-decoration:underline}
 .topbar{display:flex; align-items:center; justify-content:space-between; padding:12px var(--space); border-bottom:1px solid var(--border); background:rgba(15,23,42,.7); backdrop-filter:saturate(150%) blur(6px); position:sticky; top:0}
 .topbar .brand a{font-weight:700; letter-spacing:.2px}
 .topbar .menu{display:flex; gap:16px; list-style:none; margin:0; padding:0}
+.topbar .menu li.active a{font-weight:700; text-decoration:underline}
 .container{max-width:var(--maxw); margin:24px auto; padding:0 var(--space)}
 .card{background:var(--panel); border:1px solid var(--border); border-radius:var(--radius); padding:calc(var(--space)*1.25)}
 .btn{display:inline-flex; align-items:center; gap:.5rem; padding:.6rem 1rem; border-radius:10px; border:1px solid var(--border); background:#0e223d}
@@ -31,3 +32,5 @@ a:hover{text-decoration:underline}
 .skip-link{position:absolute; left:-999px; top:auto; width:1px; height:1px; overflow:hidden}
 .skip-link:focus{position:static; width:auto; height:auto}
 .sr-only{position:absolute; width:1px; height:1px; padding:0; margin:-1px; overflow:hidden; clip:rect(0,0,0,0); border:0}
+.home-grid{display:grid; gap:var(--space); margin-top:var(--space); grid-template-columns:repeat(auto-fit,minmax(220px,1fr))}
+.home-grid .card{text-align:center}

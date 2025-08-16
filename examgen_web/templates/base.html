@@ -10,7 +10,7 @@
   <nav class="topbar" role="navigation" aria-label="{{ _('Main navigation') }}">
     <div class="brand"><a href="/">{{ _('ExamGen') }}</a></div>
     <ul class="menu">
-      <li><a href="/">{{ _('Inicio') }}</a></li>
+      <li class="{% if request.path == '/' %}active{% endif %}"><a href="/">{{ _('Inicio') }}</a></li>
       <li><a href="/exams">{{ _('Exámenes') }}</a></li>
       <li><a href="/attempts">{{ _('Historial') }}</a></li>
       <li class="{% if request.path.startswith('/import') %}active{% endif %}"><a href="/import">{{ _('Importar') }}</a></li>

@@ -10,16 +10,18 @@
     </div>
   </header>
 
-  {% if not items %}
-    <div class="empty">
-      <p>{{ _('No se detectaron exámenes aún.') }}</p>
-      <p class="hint">{{ _('Puedes') }} <a href="/import">{{ _('Importar') }}</a> {{ _('un banco o crear uno desde "Crear examen".') }}</p>
-    </div>
-  {% else %}
-    <div class="table-wrap">
-      <table class="table" aria-label="{{ _('Listado de exámenes') }}">
-        <thead><tr><th scope="col">{{ _('ID') }}</th><th scope="col">{{ _('Título') }}</th><th scope="col">{{ _('Resolver') }}</th><th scope="col">{{ _('Historial') }}</th></tr></thead>
-        <tbody>
+  <div class="table-wrap">
+    <table class="table" aria-label="{{ _('Listado de exámenes') }}">
+      <thead>
+        <tr>
+          <th scope="col">{{ _('ID') }}</th>
+          <th scope="col">{{ _('Título') }}</th>
+          <th scope="col">{{ _('Resolver') }}</th>
+          <th scope="col">{{ _('Historial') }}</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% if items %}
           {% for e in items %}
             <tr>
               <td>{{ e.id }}</td>
@@ -28,9 +30,16 @@
               <td><a class="btn btn-secondary" href="{{ url_for('attempts.attempts_index', exam_id=e.id) }}">{{ _('Historial') }}</a></td>
             </tr>
           {% endfor %}
-        </tbody>
-      </table>
-    </div>
-  {% endif %}
+        {% else %}
+          <tr>
+            <td colspan="4" class="empty">
+              <p>{{ _('No se detectaron exámenes aún.') }}</p>
+              <p class="hint">{{ _('Puedes') }} <a href="/import">{{ _('Importar') }}</a> {{ _('un banco o crear uno desde "Crear examen".') }}</p>
+            </td>
+          </tr>
+        {% endif %}
+      </tbody>
+    </table>
+  </div>
 </section>
 {% endblock %}
