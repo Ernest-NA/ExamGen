@@ -1,0 +1,53 @@
+{% extends "base.html" %}
+{% block title %}Historial de exámenes · ExamGen{% endblock %}
+{% block content %}
+<section class="container">
+  <header class="page-header">
+    <h1>Historial de exámenes</h1>
+    <div class="actions">
+      <a class="btn" href="{{ url_for('attempts.export_csv', exam_id=exam_id) }}">CSV</a>
+      <a class="btn" href="{{ url_for('attempts.export_json', exam_id=exam_id) }}">JSON</a>
+    </div>
+  </header>
+
+  {% if exam_id %}
+    <p class="hint">Filtrado por examen #{{ exam_id }}.
+      <a href="{{ url_for('attempts.attempts_index') }}">Quitar filtro</a>
+    </p>
+  {% endif %}
+
+  {% if not items %}
+    <div class="empty">
+      <p>No se encontraron intentos.</p>
+      <p class="hint">Puedes <a href="/import">importar</a> un banco para comenzar.</p>
+    </div>
+  {% else %}
+    <div class="table-wrap">
+      <table class="table" role="table">
+        <thead>
+          <tr>
+            <th scope="col">Intento</th>
+            <th scope="col">Examen</th>
+            <th scope="col">Inicio</th>
+            <th scope="col">Fin</th>
+            <th scope="col">Puntuación</th>
+            <th scope="col">Estado</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for a in items %}
+          <tr>
+            <td>{{ a.attempt_id }}</td>
+            <td>{{ a.exam_title or ('#' ~ a.exam_id) }}</td>
+            <td>{{ a.started_at or '—' }}</td>
+            <td>{{ a.submitted_at or '—' }}</td>
+            <td>{{ a.score if a.score is not none else '—' }}</td>
+            <td>{{ a.status or '—' }}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  {% endif %}
+</section>
+{% endblock %}

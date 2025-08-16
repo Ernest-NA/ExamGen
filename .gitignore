@@ -178,3 +178,4 @@ cython_debug/
 *.db
 **/__pycache__/
 *.log
+logs/

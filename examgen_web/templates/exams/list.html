@@ -18,12 +18,13 @@
   {% else %}
     <div class="table-wrap">
       <table class="table">
-        <thead><tr><th>ID</th><th>Título</th></tr></thead>
+        <thead><tr><th>ID</th><th>Título</th><th>Historial</th></tr></thead>
         <tbody>
           {% for e in items %}
             <tr>
               <td>{{ e.id }}</td>
               <td>{{ e.title or "—" }}</td>
+              <td><a class="btn" href="{{ url_for('attempts.attempts_index', exam_id=e.id) }}">Historial</a></td>
             </tr>
           {% endfor %}
         </tbody>
