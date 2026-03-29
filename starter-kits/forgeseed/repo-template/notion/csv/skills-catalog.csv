@@ -1,0 +1,7 @@
+Skill Name,Purpose,Trigger,Input,Output,Repo Path,Owner,Version
+create-feature,Implement feature end-to-end,New feature task,Spec + acceptance criteria,Code + tests + docs,.agents/skills/create-feature,__AUTHOR__,1.0
+bugfix,Fix production or development defects,Defect found,Steps to reproduce,Fix + regression test,.agents/skills/bugfix,__AUTHOR__,1.0
+write-tests,Improve coverage or add regression tests,Behavior changed,Target module,Automated tests,.agents/skills/write-tests,__AUTHOR__,1.0
+refactor-module,Improve module structure,Code quality task,Target module,Safer cleaner code,.agents/skills/refactor-module,__AUTHOR__,1.0
+review-pr,Review a change set,PR opened,PR diff,Review notes,.agents/skills/review-pr,__AUTHOR__,1.0
+update-docs,Align docs with implementation,Behavior/doc drift,Affected docs,Updated documentation,.agents/skills/update-docs,__AUTHOR__,1.0
